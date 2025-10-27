@@ -1,13 +1,7 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { APP_GUARD } from '@nestjs/core';
-import {
-  PrometheusModule,
-  makeCounterProvider,
-} from '@willsoto/nestjs-prometheus';
+import { PrometheusModule } from '@willsoto/nestjs-prometheus';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { join } from 'path';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
@@ -29,6 +23,9 @@ import { JournalModule } from './modules/journal/journal.module';
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       autoLoadEntities: true,
+      ssl: {
+        rejectUnauthorized: false,
+      },
     }),
     AuthModule,
     OtpModule,
