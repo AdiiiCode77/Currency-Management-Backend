@@ -40,6 +40,6 @@ async function bootstrap() {
   app.use('/api/v1/webhooks', express.raw({ type: 'application/json' }));
   app.use(express.urlencoded({ extended: false }));
 
-  await app.listen(configService.get('PORT') || 3000);
+  await app.listen(configService.get('PORT'));
 }
 bootstrap();
