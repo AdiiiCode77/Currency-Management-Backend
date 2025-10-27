@@ -41,5 +41,7 @@ async function bootstrap() {
   app.use(express.urlencoded({ extended: false }));
 
   await app.listen(configService.get('PORT'));
+
+  console.log('server is Listening on Port', configService.get('PORT'));
 }
 bootstrap();
