@@ -12,14 +12,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: loggerService.logger,
   });
+
   app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-    }),
+    new ValidationPipe({ transform: true }),
     new GlobalSanitizerPipe(),
   );
-  const configService = app.get(ConfigService);
   app.enableCors();
+
+  const configService = app.get(ConfigService);
 
   const config = new DocumentBuilder()
     .setTitle('Admin Panel')
@@ -34,14 +34,16 @@ async function bootstrap() {
       in: 'header',
     })
     .build();
+
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('/api-docs', app, documentFactory);
 
   app.use('/api/v1/webhooks', express.raw({ type: 'application/json' }));
   app.use(express.urlencoded({ extended: false }));
 
-  await app.listen(configService.get('PORT'));
-
-  console.log('server is Listening on Port', configService.get('PORT'));
+  const port = configService.get('PORT') || process.env.PORT || 3000;
+  await app.listen(port, '0.0.0.0');
+  console.log(`✅ Server is Listening on Port ${port}`);
 }
+
 bootstrap();
