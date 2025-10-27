@@ -21,7 +21,7 @@ import { JournalModule } from './modules/journal/journal.module';
 
 @Module({
   imports: [
-      TypeOrmModule.forRoot({
+    TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST,
       port: parseInt(process.env.DB_PORT || '5432'),
@@ -71,7 +71,6 @@ import { JournalModule } from './modules/journal/journal.module';
       },
     }),
     LoggerModule,
-
   ],
   controllers: [],
   providers: [],
