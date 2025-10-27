@@ -3,8 +3,8 @@ import { AccountType } from '../enums/account-type.enum';
 
 @Entity('general_accounts')
 export class GeneralAccountEntity {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ name: 'account_type', type: 'enum', enum: AccountType })
   accountType: AccountType;

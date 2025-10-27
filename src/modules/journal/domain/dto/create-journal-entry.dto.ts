@@ -14,11 +14,11 @@ export class CreateJournalEntryDto {
 
   @ApiProperty({ example: 'uuid-of-credit-account' })
   @IsUUID()
-  crAccountId: number;
+  crAccountId: string;
 
   @ApiProperty({ example: 'uuid-of-debit-account' })
   @IsUUID()
-  drAccountId: number;
+  drAccountId: string;
 
   @ApiProperty({ example: 1500.75 })
   @IsNumber()

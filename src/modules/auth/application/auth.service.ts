@@ -61,8 +61,7 @@ export class AuthService {
   }
 
   async signupUserAndSendOtp(
-    body: ISignupFirstStep &
-      Pick<ISignupSecondStep, 'phone' | 'name' | 'password' | 'user_type_id'>,
+    body: ISignupFirstStep
   ) {
     const email = body.email.toLowerCase();
 
@@ -89,7 +88,7 @@ export class AuthService {
     });
 
     try {
-      await this.mailService.sendOtpEmail(email, body.name || 'User', otp);
+      await this.mailService.sendOtpEmail(email,'User', otp);
     } catch (error) {
       throw new BadRequestException(['Failed to send OTP email']);
     }

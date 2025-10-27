@@ -12,7 +12,7 @@ export default new DataSource({
   migrations: ['dist/src/migrations/*.js'],
   synchronize: false,
   logging: true,
-  // ssl: {
-  //   rejectUnauthorized: false,
-  // },
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });

@@ -19,7 +19,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AdminLoginDto } from '../domain/dto/admin-login.dto';
-import { ISignupSecondStep } from '../domain/types/auth-types';
+import { ISignupFirstStep, ISignupSecondStep } from '../domain/types/auth-types';
 
 @ApiTags('Authentication')
 @Controller('/api/v1/auth')
@@ -70,10 +70,6 @@ export class AuthController {
   schema: {
     example: {
       email: 'test@example.com',
-      name: 'John Doe',
-      phone: '+923001234567',
-      user_type_id: '29cc763a-d7e5-4ab3-ad9e-92a81ff8b50a',
-      password: 'StrongPassword123!',
     },
   },
 })
@@ -81,15 +77,11 @@ export class AuthController {
 @ApiResponse({ status: 400, description: 'Validation failed' })
 @ApiResponse({ status: 409, description: 'User already exists' })
 async signupFirstStep(
-  @Body() body: CreateUserDto,
+  @Body() body: ISignupFirstStep,
 ) {
   try {
     return await this.authService.signupUserAndSendOtp({
       email: body.email.toLowerCase(),
-      phone: body.phone,
-      name: body.name,
-      password: body.password,
-      user_type_id: body.user_type_id,
     });
   } catch (error) {
     throw error;

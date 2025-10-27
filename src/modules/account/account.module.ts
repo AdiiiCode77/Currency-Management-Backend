@@ -17,6 +17,7 @@ import { AddChqRefBankEntity } from './domain/entity/add-chq-ref-bank.entity';
 import { AddCurrencyEntity } from './domain/entity/currency.entity';
 import { AddExpenseEntity } from './domain/entity/add-expense.entity';
 import { CurrencyAccountEntity } from './domain/entity/currency-account.entity';
+import { AccountGetController } from './interface/account-get.controller';
 @Module({
   imports: [
     MailModule,
@@ -36,6 +37,6 @@ import { CurrencyAccountEntity } from './domain/entity/currency-account.entity';
   providers: [
     AccountService, JwtService, UpdateAccountsService
   ],
-  controllers: [AccountController, UpdateAccountsController],
+  controllers: [AccountController, UpdateAccountsController, AccountGetController],
 })
 export class AccountsModule {}

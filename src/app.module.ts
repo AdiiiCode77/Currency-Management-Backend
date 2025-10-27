@@ -17,6 +17,7 @@ import { LoggerModule } from './modules/logger/logger.module';
 import { UserModule } from './modules/users/user.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountsModule } from './modules/account/account.module';
+import { JournalModule } from './modules/journal/journal.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AccountsModule } from './modules/account/account.module';
     OtpModule,
     UserModule,
     AccountsModule,
+    JournalModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -71,9 +73,7 @@ import { AccountsModule } from './modules/account/account.module';
     LoggerModule,
 
   ],
-  controllers: [AppController],
-  providers: [
-    AppService
-  ],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
