@@ -41,10 +41,7 @@ async function bootstrap() {
   app.use('/api/v1/webhooks', express.raw({ type: 'application/json' }));
   app.use(express.urlencoded({ extended: false }));
 
-  const port = process.env.PORT || configService.get('PORT') || 8001;
-  await app.listen(port, () => {
-    console.log(`✅ Server is Listening on Port ${port}`);
-  });
+  await app.listen(configService.get('PORT'));
 }
 
 bootstrap();
