@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Get, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { JournalService } from '../application/jounal.service';
 import { CreateJournalEntryDto } from '../domain/dto/create-journal-entry.dto';
@@ -11,7 +11,7 @@ import { CreateCashPaymentEntryDto } from '../domain/dto/create-cash-payment-ent
 import { CreateCashReceivedEntryDto } from '../domain/dto/create-cash-received-entry.dto';
 
 @ApiTags('Journal Entries')
-@Controller('journal')
+@Controller('api/v1/journal')
 export class JournalController {
   constructor(private readonly journalService: JournalService) {}
 
@@ -70,15 +70,47 @@ export class JournalController {
     return await this.journalService.createCashReceivedEntry(dto, req.adminId);
   }
 
-@Post('create/multiple')
-@ApiOperation({ summary: 'Create multiple Journal Entries at once' })
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, IsAdminGuard)
-async createMultipleJournalEntries(
-  @Req() req: Request,
-  @Body() dtos: CreateJournalEntryDto[],
-) {
-  return await this.journalService.createMultipleJournalEntries(dtos, req.adminId);
-}
-
+  @Post('create/multiple')
+  @ApiOperation({ summary: 'Create multiple Journal Entries at once' })
+  @ApiBearerAuth()
+  @ApiBody({
+    description: 'Array of Journal Entries to create',
+    isArray: true,
+    type: CreateJournalEntryDto,
+    examples: {
+      sample: {
+        summary: 'Sample Journal Entry List',
+        value: [
+          {
+            date: '2025-01-05',
+            paymentType: 'Cust-to-Cust Online',
+            crAccountId: 'f5180a17-2449-4c88-b86e-041ee160a9c8',
+            drAccountId: '843ef714-3707-4906-b4ea-2eb1e4d2ba88',
+            amount: 1500,
+            description: 'Fuel expense',
+            chqNo: '',
+          },
+          {
+            date: '2025-01-05',
+            paymentType: 'JV Payment',
+            crAccountId: 'f5180a17-2449-4c88-b86e-041ee160a9c8',
+            drAccountId: '843ef714-3707-4906-b4ea-2eb1e4d2ba88',
+            amount: 9000,
+            description: 'Supplier payment',
+            chqNo: 'CHQ-5566',
+          },
+        ],
+      },
+    },
+  })
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+  async createMultipleJournalEntries(
+    @Req() req: Request,
+    @Body() dtos: CreateJournalEntryDto[],
+  ) {
+    return await this.journalService.createMultipleJournalEntries(
+      dtos,
+      req.adminId,
+    );
+  }
 }

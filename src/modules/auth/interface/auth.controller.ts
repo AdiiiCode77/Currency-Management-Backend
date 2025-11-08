@@ -128,8 +128,7 @@ async signupFinalStep(@Body() body: ISignupSecondStep) {
     schema: {
       example: {
         email: 'admin@example.com',
-        password: 'password123',
-        device_push_token: 'device_token_here',
+        password: 'password123'
       },
     },
   })

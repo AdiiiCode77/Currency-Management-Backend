@@ -239,8 +239,7 @@ export class AuthService {
 
   async loginAdminWithEmail(body: {
     email: string;
-    password: string;
-    device_push_token?: string;
+    password: string
   }) {
     const user = await this.userRepository.findOne({
       where: {
@@ -263,7 +262,7 @@ export class AuthService {
       .leftJoinAndSelect('user_profile.userType', 'user_types')
       .where('user_profile.user_id = :userId', { userId: user.id })
       .andWhere('user_types.name IN (:...types)', {
-        types: ['admin', 'User', 'superAdmin'],
+        types: ['admin', 'customer', 'superAdmin'],
       })
       .getMany();
 

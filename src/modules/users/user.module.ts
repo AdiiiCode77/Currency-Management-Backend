@@ -9,6 +9,15 @@ import { JwtService } from '@nestjs/jwt';
 import { UserProfileEntity } from './domain/entities/user-profiles.entity';
 import { UserTypeEntity } from './domain/entities/user-type.entity';
 import { MailService } from 'src/shared/modules/mail/mail.service';
+import { CommonService } from 'src/shared/modules/application/common.service';
+import { CommonController } from 'src/shared/modules/interface/common.controller';
+import { CustomerAccountEntity } from '../account/domain/entity/customer-account.entity';
+import { AddChqRefBankEntity } from '../account/domain/entity/add-chq-ref-bank.entity';
+import { GeneralAccountEntity } from '../account/domain/entity/general-account.entity';
+import { EmployeeAccountEntity } from '../account/domain/entity/employee-account.entity';
+import { AddExpenseEntity } from '../account/domain/entity/add-expense.entity';
+import { CurrencyAccountEntity } from '../account/domain/entity/currency-account.entity';
+import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
 
 @Module({
   imports: [
@@ -18,14 +27,22 @@ import { MailService } from 'src/shared/modules/mail/mail.service';
       UserTypeEntity,
       AdminEntity,
       CustomerEntity,
+      CustomerAccountEntity,
+      AddChqRefBankEntity,
+      GeneralAccountEntity,
+      EmployeeAccountEntity,
+      AddExpenseEntity,
+      CurrencyAccountEntity,
+      AddCurrencyEntity
     ]),
   ],
   providers: [
     UserService,
     JwtService,
     MailService,
+    CommonService
   ],
-  controllers: [UserController],
+  controllers: [UserController, CommonController],
   exports: [UserService],
 })
 export class UserModule {}

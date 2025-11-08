@@ -6,7 +6,7 @@ import { JwtAuthGuard } from 'src/shared/guards/jwt.guard';
 import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
 
 @ApiTags('Journal Entries - Get')
-@Controller('journal')
+@Controller('api/v1/journal')
 export class JournalGetController {
   constructor(private readonly journalService: JournalService) {}
 

@@ -1,0 +1,107 @@
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { AddChqRefBankEntity } from 'src/modules/account/domain/entity/add-chq-ref-bank.entity';
+import { AddExpenseEntity } from 'src/modules/account/domain/entity/add-expense.entity';
+import { CurrencyAccountEntity } from 'src/modules/account/domain/entity/currency-account.entity';
+import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
+import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
+import { EmployeeAccountEntity } from 'src/modules/account/domain/entity/employee-account.entity';
+import { GeneralAccountEntity } from 'src/modules/account/domain/entity/general-account.entity';
+import { Repository } from 'typeorm';
+
+@Injectable()
+export class CommonService {
+  private repoMap: Record<string, Repository<any>>;
+  constructor(
+    @InjectRepository(CustomerAccountEntity)
+    private customerRepo: Repository<CustomerAccountEntity>,
+    @InjectRepository(AddChqRefBankEntity)
+    private bankRepo: Repository<AddChqRefBankEntity>,
+    @InjectRepository(GeneralAccountEntity)
+    private generalRepo: Repository<GeneralAccountEntity>,
+    @InjectRepository(EmployeeAccountEntity)
+    private employee: Repository<EmployeeAccountEntity>,
+    @InjectRepository(AddExpenseEntity)
+    private expense: Repository<AddExpenseEntity>,
+    @InjectRepository(AddChqRefBankEntity)
+    private chqbank: Repository<AddChqRefBankEntity>,
+    @InjectRepository(CurrencyAccountEntity)
+    private currency: Repository<CurrencyAccountEntity>,
+    @InjectRepository(AddCurrencyEntity)
+    private currency_user: Repository<AddCurrencyEntity>,
+    
+
+  ) {
+    this.repoMap = {
+      customer: this.customerRepo,
+      bank: this.bankRepo,
+      general: this.generalRepo,
+      employee: this.employee,
+      expense: this.expense,
+      chqbank: this.chqbank,
+      currency: this.currency,
+      currency_user: this.currency_user
+    };
+  }
+
+  async getAllCustomersForDropdown(adminId: string) {
+    try {
+      const customers = await this.customerRepo.find({
+        select: ['id', 'name'],
+        order: { name: 'ASC' },
+        where: { adminId },
+      });
+
+      return customers.map((c) => ({
+        label: c.name,
+        value: c.id,
+      }));
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to load customers. Please try again later.',
+      );
+    }
+  }
+
+  async getAllBankForDropdown(adminId: string) {
+    try {
+      const banks = await this.bankRepo.find({
+        select: ['id', 'name', 'accountNumber'],
+        order: { name: 'ASC' },
+        where: { adminId },
+      });
+      return banks.map((b) => ({
+        label: b.name,
+        value: b.id,
+        accountNumber: b.accountNumber,
+      }));
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to load banks. Please try again later.',
+      );
+    }
+  }
+
+  async getModuleById(module: string, id: string) {
+    const repo = this.repoMap[module];
+
+    if (!repo) {
+      throw new BadRequestException('Invalid module name');
+    }
+
+    const record = await repo.findOne({ where: { id } });
+
+    if (!record) {
+      throw new NotFoundException(
+        `Record not found for ${module} with id ${id}`,
+      );
+    }
+
+    return record;
+  }
+}

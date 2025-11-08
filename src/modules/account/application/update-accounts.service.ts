@@ -9,6 +9,7 @@ import { AddExpenseEntity } from '../domain/entity/add-expense.entity';
 import { AddChqRefBankEntity } from '../domain/entity/add-chq-ref-bank.entity';
 import { AddCurrencyEntity } from '../domain/entity/currency.entity';
 import { CurrencyAccountEntity } from '../domain/entity/currency-account.entity';
+import { UUID } from 'crypto';
 
 @Injectable()
 export class UpdateAccountsService {
@@ -34,7 +35,7 @@ export class UpdateAccountsService {
   // Generic update handler
   private async updateEntity<T>(
     repo: Repository<T>,
-    id: number,
+    id: string,
     partialData: Partial<T>,
   ): Promise<T> {
     const entity = await repo.findOne({ where: { id } as any });
@@ -44,35 +45,35 @@ export class UpdateAccountsService {
     return await repo.save(entity);
   }
 
-  async updateCustomerAccount(id: number, dto: Partial<CustomerAccountEntity>) {
+  async updateCustomerAccount(id: string, dto: Partial<CustomerAccountEntity>) {
     return this.updateEntity(this.customerRepo, id, dto);
   }
 
-  async updateBankAccount(id: number, dto: Partial<BankAccountEntity>) {
+  async updateBankAccount(id: string, dto: Partial<BankAccountEntity>) {
     return this.updateEntity(this.bankRepo, id, dto);
   }
 
-  async updateGeneralAccount(id: number, dto: Partial<GeneralAccountEntity>) {
+  async updateGeneralAccount(id: string, dto: Partial<GeneralAccountEntity>) {
     return this.updateEntity(this.generalRepo, id, dto);
   }
 
-  async updateEmployeeAccount(id: number, dto: Partial<EmployeeAccountEntity>) {
+  async updateEmployeeAccount(id: string, dto: Partial<EmployeeAccountEntity>) {
     return this.updateEntity(this.employeeRepo, id, dto);
   }
 
-  async updateExpense(id: number, dto: Partial<AddExpenseEntity>) {
+  async updateExpense(id: string, dto: Partial<AddExpenseEntity>) {
     return this.updateEntity(this.expenseRepo, id, dto);
   }
 
-  async updateChqRefBank(id: number, dto: Partial<AddChqRefBankEntity>) {
+  async updateChqRefBank(id: string, dto: Partial<AddChqRefBankEntity>) {
     return this.updateEntity(this.chqRefBankRepo, id, dto);
   }
 
-  async updateCurrency(id: number, dto: Partial<AddCurrencyEntity>) {
+  async updateCurrency(id: string, dto: Partial<AddCurrencyEntity>) {
     return this.updateEntity(this.currencyRepo, id, dto);
   }
 
-  async updateCurrencyAccount(id: number, dto: Partial<CurrencyAccountEntity>) {
+  async updateCurrencyAccount(id: string, dto: Partial<CurrencyAccountEntity>) {
     return this.updateEntity(this.currencyAccountRepo, id, dto);
   }
 }
