@@ -18,6 +18,7 @@ import { EmployeeAccountEntity } from '../account/domain/entity/employee-account
 import { AddExpenseEntity } from '../account/domain/entity/add-expense.entity';
 import { CurrencyAccountEntity } from '../account/domain/entity/currency-account.entity';
 import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
+import { BankAccountEntity } from '../account/domain/entity/bank-account.entity';
 
 @Module({
   imports: [
@@ -33,7 +34,8 @@ import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
       EmployeeAccountEntity,
       AddExpenseEntity,
       CurrencyAccountEntity,
-      AddCurrencyEntity
+      AddCurrencyEntity,
+      BankAccountEntity
     ]),
   ],
   providers: [

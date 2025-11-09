@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { AddChqRefBankEntity } from 'src/modules/account/domain/entity/add-chq-ref-bank.entity';
 import { AddExpenseEntity } from 'src/modules/account/domain/entity/add-expense.entity';
+import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
 import { CurrencyAccountEntity } from 'src/modules/account/domain/entity/currency-account.entity';
 import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
 import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
@@ -20,8 +21,8 @@ export class CommonService {
   constructor(
     @InjectRepository(CustomerAccountEntity)
     private customerRepo: Repository<CustomerAccountEntity>,
-    @InjectRepository(AddChqRefBankEntity)
-    private bankRepo: Repository<AddChqRefBankEntity>,
+    @InjectRepository(BankAccountEntity)
+    private bankRepo: Repository<BankAccountEntity>,
     @InjectRepository(GeneralAccountEntity)
     private generalRepo: Repository<GeneralAccountEntity>,
     @InjectRepository(EmployeeAccountEntity)
@@ -71,12 +72,12 @@ export class CommonService {
   async getAllBankForDropdown(adminId: string) {
     try {
       const banks = await this.bankRepo.find({
-        select: ['id', 'name', 'accountNumber'],
-        order: { name: 'ASC' },
+        select: ['id', 'bankName', 'accountNumber'],
+        order: { bankName: 'ASC' },
         where: { adminId },
       });
       return banks.map((b) => ({
-        label: b.name,
+        label: b.bankName,
         value: b.id,
         accountNumber: b.accountNumber,
       }));
