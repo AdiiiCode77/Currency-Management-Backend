@@ -1,4 +1,5 @@
 export enum AccountType {
+  CUSTOMER = 'Customer',
   ASSET = 'Asset',
   CAPITAL = 'Capital',
   CASH = 'Cash',

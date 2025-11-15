@@ -13,6 +13,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountsModule } from './modules/account/account.module';
 import { JournalModule } from './modules/journal/journal.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { SalePurchaseModule } from './modules/sale-purchase/entry.module';
+import { CurrencyModule } from './modules/currency/currency.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     AccountsModule,
     JournalModule,
     DashboardModule,
+    SalePurchaseModule,
+    CurrencyModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
