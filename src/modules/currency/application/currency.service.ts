@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CustomerCurrencyAccountEntity } from '../domain/entities/currencies-account.entity';
@@ -6,7 +10,10 @@ import { CustomerCreateCurrencyAccountDto } from '../domain/dto/create-currency-
 import { buildPaginationResponse } from 'src/shared/utils/pagination.utils';
 import { PaginationDto } from 'src/shared/modules/dtos/pagination.dto';
 import { UpdateCustomerCurrencyAccountDto } from '../domain/dto/update-currency-accounts.dto';
-import { CreateCurrencyEntryDto, EntryType } from '../domain/dto/create-currency-entry.dto';
+import {
+  CreateCurrencyEntryDto,
+  EntryType,
+} from '../domain/dto/create-currency-entry.dto';
 import { CustomerCurrencyEntryEntity } from '../domain/entities/currency-entry.entity';
 import { CreateMultipleCurrencyEntryDto } from '../domain/dto/multiple-currency-entry.dto';
 
@@ -18,10 +25,12 @@ export class CurrencyAccountService {
 
     @InjectRepository(CustomerCurrencyEntryEntity)
     private entryRepo: Repository<CustomerCurrencyEntryEntity>,
-
   ) {}
 
-  async createCurrencyAccount(dto: CustomerCreateCurrencyAccountDto, adminId: string) {
+  async createCurrencyAccount(
+    dto: CustomerCreateCurrencyAccountDto,
+    adminId: string,
+  ) {
     const exists = await this.currencyRepo.findOne({
       where: { name: dto.name },
     });
@@ -46,10 +55,7 @@ export class CurrencyAccountService {
     return customer;
   }
 
-  async getCustomersByAdmin(
-    adminId: string,
-    paginationDto: PaginationDto,
-  ) {
+  async getCustomersByAdmin(adminId: string, paginationDto: PaginationDto) {
     const { offset = 1, limit = 10 } = paginationDto;
 
     const [data, total] = await this.currencyRepo.findAndCount({
@@ -62,10 +68,7 @@ export class CurrencyAccountService {
     return buildPaginationResponse(data, total, offset, limit);
   }
 
-  async updateCustomer(
-    id: string,
-    dto: UpdateCustomerCurrencyAccountDto,
-  ) {
+  async updateCustomer(id: string, dto: UpdateCustomerCurrencyAccountDto) {
     const customer = await this.currencyRepo.findOne({ where: { id } });
     if (!customer) throw new NotFoundException('Customer account not found');
 
@@ -74,7 +77,9 @@ export class CurrencyAccountService {
   }
 
   async createCurrencyEntry(dto: CreateCurrencyEntryDto, adminId: string) {
-    const account = await this.currencyRepo.findOne({ where: { id: dto.accountId } });
+    const account = await this.currencyRepo.findOne({
+      where: { id: dto.accountId },
+    });
     if (!account) throw new NotFoundException('Customer account not found');
 
     if (dto.entryType === EntryType.JAMAM) {
@@ -82,7 +87,9 @@ export class CurrencyAccountService {
     } else if (dto.entryType === EntryType.BANAM) {
       account.balance -= dto.amount; // Debit
       if (account.balance < 0) {
-        throw new BadRequestException('Insufficient balance for debit transaction');
+        throw new BadRequestException(
+          'Insufficient balance for debit transaction',
+        );
       }
     }
 
@@ -93,7 +100,7 @@ export class CurrencyAccountService {
       amount: dto.amount,
       description: dto.description,
       entryType: dto.entryType,
-      adminId: adminId
+      adminId: adminId,
     });
 
     await this.entryRepo.save(entry);
@@ -106,24 +113,42 @@ export class CurrencyAccountService {
     dto: CreateMultipleCurrencyEntryDto,
     adminId: string,
   ) {
+    if (!dto.entries || dto.entries.length === 0) {
+      throw new BadRequestException('No entries provided');
+    }
+
     const results = [];
-  
+    const accountMap: Map<string, CustomerCurrencyAccountEntity> = new Map();
+
+    // Step 1: preload all accounts involved in the entries
+    const accountIds = [...new Set(dto.entries.map((e) => e.accountId))]; // unique account IDs
+    const accounts = await this.currencyRepo.findByIds(accountIds);
+
+    // map accounts by ID for easy access
+    accounts.forEach((acc) => accountMap.set(acc.id, acc));
+
+    // Step 2: process each entry in order
     for (const entryDto of dto.entries) {
-      const account = await this.currencyRepo.findOne({ where: { id: entryDto.accountId } });
-      if (!account) throw new NotFoundException(`Customer account not found: ${entryDto.accountId}`);
-  
-      // Update balance
+      const account = accountMap.get(entryDto.accountId);
+      if (!account) {
+        throw new NotFoundException(
+          `Customer account not found: ${entryDto.accountId}`,
+        );
+      }
+
+      // update balance according to entry type
       if (entryDto.entryType === EntryType.JAMAM) {
-        account.balance += entryDto.amount; // Credit
+        account.balance += entryDto.amount; // credit
       } else if (entryDto.entryType === EntryType.BANAM) {
-        account.balance -= entryDto.amount; // Debit
-        if (account.balance < 0) {
+        if (account.balance < entryDto.amount) {
           throw new BadRequestException(
             `Insufficient balance for account ${account.id} on debit`,
           );
         }
+        account.balance -= entryDto.amount; // debit
       }
-  
+
+      // create entry
       const entry = this.entryRepo.create({
         date: entryDto.date,
         paymentType: entryDto.paymentType,
@@ -133,13 +158,16 @@ export class CurrencyAccountService {
         entryType: entryDto.entryType,
         adminId,
       });
-  
-      await this.entryRepo.save(entry);
-      await this.currencyRepo.save(account);
-  
+
       results.push({ entry, updatedBalance: account.balance });
     }
-  
+
+    // Step 3: save all entries at once (batch insert)
+    await this.entryRepo.save(results.map((r) => r.entry));
+
+    // Step 4: save all updated accounts at once
+    await this.currencyRepo.save(Array.from(accountMap.values()));
+
     return results;
   }
 }

@@ -13,7 +13,7 @@ import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
 import { Request } from 'express';
 
 @ApiTags('Sale & Purchase Entries')
-@Controller('sale-purchase')
+@Controller('api/v1/sale-purchase')
 export class SalePurchaseController {
   constructor(private readonly service: SalePurchaseService) {}
 

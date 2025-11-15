@@ -29,7 +29,7 @@ import { CreateMultipleCurrencyEntryDto } from '../domain/dto/multiple-currency-
 @ApiTags('Currency Accounts')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, IsAdminGuard)
-@Controller('currency-account')
+@Controller('/api/v1/currency-account')
 export class CurrencyAccountController {
   constructor(private readonly service: CurrencyAccountService) {}
 
