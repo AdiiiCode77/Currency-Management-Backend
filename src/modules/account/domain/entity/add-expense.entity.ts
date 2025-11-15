@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('expense-accounts')
+@Entity('expense_accounts')
 export class AddExpenseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
