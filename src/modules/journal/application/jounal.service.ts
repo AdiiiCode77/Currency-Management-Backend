@@ -145,20 +145,17 @@ export class JournalService {
     dto: CreateCashPaymentEntryDto,
     adminId: string,
   ) {
-    const crAccount = await this.accountsRepo.findOne({
-      where: { id: dto.crAccountId },
-    });
     const drAccount = await this.accountsRepo.findOne({
       where: { id: dto.drAccountId },
     });
 
-    if (!crAccount || !drAccount) {
+    if (!drAccount) {
       throw new Error('Invalid account selected for credit or debit.');
     }
 
     const entry = this.cashPaymentRepo.create({
       date: dto.date,
-      crAccount,
+      crAccount: dto.crAccount,
       drAccount,
       amount: dto.amount,
       description: dto.description,
@@ -182,18 +179,15 @@ export class JournalService {
     const crAccount = await this.accountsRepo.findOne({
       where: { id: dto.crAccountId },
     });
-    const drAccount = await this.accountsRepo.findOne({
-      where: { id: dto.drAccountId },
-    });
 
-    if (!crAccount || !drAccount) {
+    if (!crAccount) {
       throw new Error('Invalid account selected for credit or debit.');
     }
 
     const entry = this.cashReceivedRepo.create({
       date: dto.date,
       crAccount,
-      drAccount,
+      drAccount: dto.drAccount,
       amount: dto.amount,
       description: dto.description,
       adminId,

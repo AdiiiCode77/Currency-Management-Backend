@@ -13,9 +13,8 @@ export class CashReceivedEntryEntity {
   @JoinColumn({ name: 'crAccountId' })
   crAccount: CustomerAccountEntity;
 
-  @ManyToOne(() => CustomerAccountEntity, { eager: true })
-  @JoinColumn({ name: 'drAccountId' })
-  drAccount: CustomerAccountEntity;
+  @Column({type: 'varchar'})
+  drAccount: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;

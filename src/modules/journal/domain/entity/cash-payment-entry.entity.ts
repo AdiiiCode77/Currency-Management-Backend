@@ -9,9 +9,8 @@ export class CashPaymentEntryEntity {
   @Column({ type: 'date' })
   date: string;
 
-  @ManyToOne(() => CustomerAccountEntity, { eager: true })
-  @JoinColumn({ name: 'crAccountId' })
-  crAccount: CustomerAccountEntity;
+  @Column({type: 'varchar'})
+  crAccount: string;
 
   @ManyToOne(() => CustomerAccountEntity, { eager: true })
   @JoinColumn({ name: 'drAccountId' })

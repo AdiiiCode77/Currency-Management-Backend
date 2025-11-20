@@ -6,9 +6,9 @@ export class CreateCashPaymentEntryDto {
   @IsNotEmpty()
   date: string;
 
-  @ApiProperty({ example: 'cr-account-id', description: 'Credit Account (Jama) ID' })
+  @ApiProperty({ example: 'cr-account', description: 'Credit Account' })
   @IsNotEmpty()
-  crAccountId: string;
+  crAccount: string;
 
   @ApiProperty({ example: 'dr-account-id', description: 'Debit Account (Banam) ID' })
   @IsNotEmpty()
