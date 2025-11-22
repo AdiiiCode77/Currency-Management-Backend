@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AccountType } from 'src/modules/account/domain/enums/account-type.enum';
 
@@ -20,4 +20,11 @@ export class CustomerCreateCurrencyAccountDto {
   @IsOptional()
   @IsString()
   accountInfo?: string;
+
+  @ApiProperty({
+    description: 'Reference currency ID from AddCurrencyEntity',
+    example: '94b4fe9d-3c02-4b8a-9cd1-1df91b2a9f4c',
+  })
+  @IsUUID()
+  currencyId: string;
 }

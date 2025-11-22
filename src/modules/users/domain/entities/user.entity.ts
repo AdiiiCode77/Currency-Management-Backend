@@ -28,15 +28,15 @@ export class UserEntity {
   @Column({ name: 'email_is_verified', type: 'boolean', default: false })
   email_is_verified: boolean;
 
-  // @Column({
-  //   name: 'profile',
-  //   type: 'text',
-  //   default: 'https://cdn-icons-png.flaticon.com/512/8847/8847419.png',
-  // })
-  // profile: string;
 
   @Column({ name: 'block_status', type: 'bool', default: false })
   block_status: boolean;
+
+  @Column({ type: 'int', default: 0 })
+  account_balance: number;
+
+  @Column({type: "varchar", default: "PKR"})
+  balance_in: string
 
   @Column({ name: 'last_login', type: Date, nullable: true })
   last_login: Date;

@@ -16,10 +16,20 @@ import {
 } from '../domain/dto/create-currency-entry.dto';
 import { CustomerCurrencyEntryEntity } from '../domain/entities/currency-entry.entity';
 import { CreateMultipleCurrencyEntryDto } from '../domain/dto/multiple-currency-entry.dto';
+import { DailyBookDto } from '../domain/dto/daily-book.dto';
+import { AdminEntity } from 'src/modules/users/domain/entities/admin.entity';
+import { UserEntity } from 'src/modules/users/domain/entities/user.entity';
 
 @Injectable()
 export class CurrencyAccountService {
   constructor(
+
+    @InjectRepository(AdminEntity)
+    private readonly adminRepo: Repository<AdminEntity>,
+
+    @InjectRepository(UserEntity)
+    private readonly userRepo: Repository<UserEntity>,
+
     @InjectRepository(CustomerCurrencyAccountEntity)
     private currencyRepo: Repository<CustomerCurrencyAccountEntity>,
 
@@ -43,6 +53,8 @@ export class CurrencyAccountService {
       accountType: dto.accountType,
       name: dto.name,
       accountInfo: dto.accountInfo,
+      currencyId: dto.currencyId,
+      currency: { id: dto.currencyId } as any,
       adminId: adminId,
     });
 
@@ -76,22 +88,45 @@ export class CurrencyAccountService {
     return this.currencyRepo.save(customer);
   }
 
+  async getGenericUserId(adminId: string) {
+    const result = await this.adminRepo
+      .createQueryBuilder('admin')
+      .leftJoin('user_profiles', 'userProfiles', 'admin.user_profile_id = userProfiles.id')
+      .leftJoin('users', 'User', 'User.id = userProfiles.user_id')
+      .select('User.id', 'userId')
+      .where('admin.id = :adminId', { adminId })
+      .getRawOne();
+  
+    return result?.userId || null;
+  }
+  
+
   async createCurrencyEntry(dto: CreateCurrencyEntryDto, adminId: string) {
+
     const account = await this.currencyRepo.findOne({
       where: { id: dto.accountId },
     });
+    const AdminInfo = await this.getGenericUserId(adminId)
+
+    const admin = await this.userRepo.findOne({
+      where: {id : AdminInfo}
+    })
+    console.log('Admin here clddlldld', admin.id)
+
     if (!account) throw new NotFoundException('Customer account not found');
 
     if (dto.entryType === EntryType.JAMAM) {
-      account.balance += dto.amount; // Credit
-    } else if (dto.entryType === EntryType.BANAM) {
-      account.balance -= dto.amount; // Debit
-      if (account.balance < 0) {
-        throw new BadRequestException(
-          'Insufficient balance for debit transaction',
-        );
-      }
+      // Credit (Money added)
+      account.balance += dto.amount;
+      admin.account_balance += dto.amount;
     }
+    
+    else if (dto.entryType === EntryType.BANAM) {
+      // Debit (Money removed) — allow negative
+      account.balance -= dto.amount;
+      admin.account_balance -= dto.amount;
+    }
+    
 
     const entry = this.entryRepo.create({
       date: dto.date,
@@ -103,6 +138,7 @@ export class CurrencyAccountService {
       adminId: adminId,
     });
 
+    await this.userRepo.save(admin)
     await this.entryRepo.save(entry);
     await this.currencyRepo.save(account);
 
@@ -170,4 +206,22 @@ export class CurrencyAccountService {
 
     return results;
   }
+
+  async getDailyBook(filter: DailyBookDto) {
+    const date = new Date(filter.date);
+  
+    const entries = await this.entryRepo.find({
+      where: { date },
+      relations: ['account'],
+      order: { created_at: 'DESC' }
+    });
+  
+    return entries.map((entry) => ({
+      accountName: entry.account?.name,
+      narration: `${entry.account?.name} To ${entry.description ?? ''}`.trim(),
+      debitAmount: entry.entryType === EntryType.BANAM ? entry.amount : 0,
+      creditAmount: entry.entryType === EntryType.JAMAM ? entry.amount : 0,
+    }));
+  }
+
 }

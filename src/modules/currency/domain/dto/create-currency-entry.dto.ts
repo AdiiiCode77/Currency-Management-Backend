@@ -1,5 +1,6 @@
 import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsUUID, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
 
 export enum PaymentType {
   JV_PAYMENT = 'JV Payment',
@@ -37,4 +38,11 @@ export class CreateCurrencyEntryDto {
   @ApiProperty({ enum: EntryType, description: 'Credit or Debit (JAMAM/BANAM)' })
   @IsEnum(EntryType)
   entryType: EntryType;
+
+  @ApiProperty({
+    description: 'Reference currency ID from AddCurrencyEntity',
+    example: '94b4fe9d-3c02-4b8a-9cd1-1df91b2a9f4c',
+  })
+  @IsUUID()
+  currencyId: string;
 }

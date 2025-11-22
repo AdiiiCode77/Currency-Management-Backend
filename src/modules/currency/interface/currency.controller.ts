@@ -25,6 +25,7 @@ import { PaginationDto } from 'src/shared/modules/dtos/pagination.dto';
 import { UpdateCustomerCurrencyAccountDto } from '../domain/dto/update-currency-accounts.dto';
 import { CreateCurrencyEntryDto } from '../domain/dto/create-currency-entry.dto';
 import { CreateMultipleCurrencyEntryDto } from '../domain/dto/multiple-currency-entry.dto';
+import { DailyBookDto } from '../domain/dto/daily-book.dto';
 
 @ApiTags('Currency Accounts')
 @ApiBearerAuth()
@@ -97,6 +98,10 @@ export class CurrencyAccountController {
     return this.service.getCustomersByAdmin(req.adminId, paginationDto);
   }
 
+  @Get('daily-book')
+  async getDailyBook(@Query() dto: DailyBookDto) {
+    return await this.service.getDailyBook(dto);
+  }
   // Update currency account (partial or full)
   @Patch(':id')
   @ApiOperation({

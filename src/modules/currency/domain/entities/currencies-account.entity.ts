@@ -1,3 +1,4 @@
+import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
 import { AccountType } from 'src/modules/account/domain/enums/account-type.enum';
 import {
     Entity,
@@ -5,6 +6,8 @@ import {
     Column,
     CreateDateColumn,
     UpdateDateColumn,
+    ManyToOne,
+    JoinColumn,
   } from 'typeorm';
   
   @Entity('customer_currency_accounts')
@@ -27,8 +30,15 @@ import {
     @Column({ name: 'admin_id', type: 'uuid' })
     adminId: string;
 
-    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
-    balance: number;    
+    @Column({ type: 'int', default: 0})
+    balance: number;
+    
+    @ManyToOne(() => AddCurrencyEntity, { eager: true })
+    @JoinColumn({ name: 'currency_id' })
+    currency: AddCurrencyEntity;
+    
+    @Column({ name: 'currency_id', type: 'uuid', nullable: true })
+    currencyId: string; 
 
     @CreateDateColumn()
     created_at: Date;
