@@ -11,7 +11,7 @@ export class BankPaymentEntryEntity {
   date: Date;
 
   // Credit Account (Cr)
-  @ManyToOne(() => CustomerAccountEntity, { eager: true })
+  @ManyToOne(() => BankAccountEntity, { eager: true })
   @JoinColumn({ name: 'bankAccountId' })
   crAccount: BankAccountEntity;
 

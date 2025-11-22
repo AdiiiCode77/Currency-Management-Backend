@@ -14,7 +14,7 @@ export class BankReceiverEntryEntity {
   @JoinColumn({ name: 'crAccountId' })
   crAccount: CustomerAccountEntity;
 
-  @ManyToOne(() => CustomerAccountEntity, { eager: true })
+  @ManyToOne(() => BankAccountEntity, { eager: true })
   @JoinColumn({ name: 'bankAccountId' })
   drAccount: BankAccountEntity;
 
