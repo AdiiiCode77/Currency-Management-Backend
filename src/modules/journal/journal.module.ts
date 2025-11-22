@@ -21,6 +21,7 @@ import { UserEntity } from '../users/domain/entities/user.entity';
 import { UserProfileEntity } from '../users/domain/entities/user-profiles.entity';
 import { UserTypeEntity } from '../users/domain/entities/user-type.entity';
 import { AdminEntity } from '../users/domain/entities/admin.entity';
+import { BankAccountEntity } from '../account/domain/entity/bank-account.entity';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AdminEntity } from '../users/domain/entities/admin.entity';
       UserProfileEntity,
       UserTypeEntity,
       AdminEntity,
+      BankAccountEntity
     ]),
   ],
   providers: [JournalService, JwtService, UserService],

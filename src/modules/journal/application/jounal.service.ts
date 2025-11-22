@@ -12,6 +12,7 @@ import { CashPaymentEntryEntity } from '../domain/entity/cash-payment-entry.enti
 import { CreateCashPaymentEntryDto } from '../domain/dto/create-cash-payment-entry.dto';
 import { CashReceivedEntryEntity } from '../domain/entity/cash-received-entry.entity';
 import { CreateCashReceivedEntryDto } from '../domain/dto/create-cash-received-entry.dto';
+import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
 
 @Injectable()
 export class JournalService {
@@ -24,6 +25,9 @@ export class JournalService {
 
     @InjectRepository(BankPaymentEntryEntity)
     private readonly bankPaymentRepo: Repository<BankPaymentEntryEntity>,
+
+    @InjectRepository(BankAccountEntity)
+    private readonly bankAccount: Repository<BankAccountEntity>,
 
     @InjectRepository(BankReceiverEntryEntity)
     private readonly bankReceiverRepo: Repository<BankReceiverEntryEntity>,
@@ -75,14 +79,14 @@ export class JournalService {
     dto: CreateBankPaymentEntryDto,
     adminId: string,
   ) {
-    const crAccount = await this.accountsRepo.findOne({
+    const crAccount = await this.bankAccount.findOne({
       where: { id: dto.crAccountId },
     });
     const drAccount = await this.accountsRepo.findOne({
       where: { id: dto.drAccountId },
     });
 
-    if (!crAccount || !drAccount) {
+    if (!drAccount || !crAccount) {
       throw new Error('Invalid account selected for credit or debit.');
     }
 
@@ -114,7 +118,7 @@ export class JournalService {
     const crAccount = await this.accountsRepo.findOne({
       where: { id: dto.crAccountId },
     });
-    const drAccount = await this.accountsRepo.findOne({
+    const drAccount = await this.bankAccount.findOne({
       where: { id: dto.drAccountId },
     });
 

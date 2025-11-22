@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
+import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
 
 @Entity('bank_receiver_entries')
 export class BankReceiverEntryEntity {
@@ -14,8 +15,8 @@ export class BankReceiverEntryEntity {
   crAccount: CustomerAccountEntity;
 
   @ManyToOne(() => CustomerAccountEntity, { eager: true })
-  @JoinColumn({ name: 'drAccountId' })
-  drAccount: CustomerAccountEntity;
+  @JoinColumn({ name: 'bankAccountId' })
+  drAccount: BankAccountEntity;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;
