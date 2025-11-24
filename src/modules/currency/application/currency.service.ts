@@ -164,39 +164,45 @@ export class CurrencyAccountService {
     if (!dto.entries || dto.entries.length === 0) {
       throw new BadRequestException('No entries provided');
     }
-
+  
     const results = [];
+  
+    // Fetch admin actual ID
+    const AdminInfo = await this.getGenericUserId(adminId);
+  
+    const admin = await this.userRepo.findOne({
+      where: { id: AdminInfo },
+    });
+  
+    if (!admin) throw new NotFoundException('Admin not found');
+  
+    // Step 1: Preload all accounts involved
     const accountMap: Map<string, CustomerCurrencyAccountEntity> = new Map();
-
-    // Step 1: preload all accounts involved in the entries
-    const accountIds = [...new Set(dto.entries.map((e) => e.accountId))]; // unique account IDs
+    const accountIds = [...new Set(dto.entries.map((e) => e.accountId))];
+  
     const accounts = await this.currencyRepo.findByIds(accountIds);
-
-    // map accounts by ID for easy access
     accounts.forEach((acc) => accountMap.set(acc.id, acc));
-
-    // Step 2: process each entry in order
+  
+    // Step 2: Process each entry
     for (const entryDto of dto.entries) {
       const account = accountMap.get(entryDto.accountId);
       if (!account) {
-        throw new NotFoundException(
-          `Customer account not found: ${entryDto.accountId}`,
-        );
+        throw new NotFoundException(`Customer account not found: ${entryDto.accountId}`);
       }
-
-      // update balance according to entry type
+  
+      // Update balances exactly like createCurrencyEntry()
       if (entryDto.entryType === EntryType.JAMAM) {
-        account.balance += entryDto.amount; // credit
-      } else if (entryDto.entryType === EntryType.BANAM) {
-        if (account.balance < entryDto.amount) {
-          throw new BadRequestException(
-            `Insufficient balance for account ${account.id} on debit`,
-          );
-        }
-        account.balance -= entryDto.amount; // debit
+        // Credit to customer → admin loses money
+        account.balance += entryDto.amount;
+        admin.account_balance -= entryDto.amount;
+      } 
+      else if (entryDto.entryType === EntryType.BANAM) {
+        // Debit from customer → admin gains money
+        account.balance -= entryDto.amount;
+        admin.account_balance += entryDto.amount;
       }
-
-      // create entry
+  
+      // Create entry
       const entry = this.entryRepo.create({
         date: entryDto.date,
         paymentType: entryDto.paymentType,
@@ -204,20 +210,25 @@ export class CurrencyAccountService {
         amount: entryDto.amount,
         description: entryDto.description,
         entryType: entryDto.entryType,
-        adminId,
+        adminId: adminId,
+        balance: account.balance,
       });
-
+  
       results.push({ entry, updatedBalance: account.balance });
     }
-
-    // Step 3: save all entries at once (batch insert)
+  
+    // Step 3: Save all entries
     await this.entryRepo.save(results.map((r) => r.entry));
-
-    // Step 4: save all updated accounts at once
+  
+    // Step 4: Save updated accounts
     await this.currencyRepo.save(Array.from(accountMap.values()));
-
+  
+    // Step 5: Save updated admin balance once
+    await this.userRepo.save(admin);
+  
     return results;
   }
+  
 
   async getDailyBook(filter: DailyBookDto, adminId: string) {
     const date = new Date(filter.date);
