@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { AddChqRefBankEntity } from 'src/modules/account/domain/entity/add-chq-ref-bank.entity';
+import { AddChqRefBankEntity} from 'src/modules/account/domain/entity/add-chq-ref-bank.entity';
 import { AddExpenseEntity } from 'src/modules/account/domain/entity/add-expense.entity';
 import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
 import { CurrencyAccountEntity } from 'src/modules/account/domain/entity/currency-account.entity';
@@ -37,7 +37,8 @@ export class CommonService {
     @InjectRepository(AddCurrencyEntity)
     private currency_user: Repository<AddCurrencyEntity>,
     @InjectRepository(CustomerCurrencyAccountEntity)
-    private currency_accounts: Repository<CustomerCurrencyAccountEntity>,
+    private currency_accounts: Repository<CustomerCurrencyAccountEntity>
+    
     
 
   ) {
@@ -147,5 +148,18 @@ export class CommonService {
         'Failed to load customers. Please try again later.',
       );
     }
+  }
+
+  async getRefBanks(adminId: string){
+    const refbanks = await this.chqbank.find({
+      where: {adminId: adminId},
+      order: {name : 'ASC'},
+      select: ['name', 'id']
+    });
+
+    return refbanks.map((c) => ({
+      label: c.name,
+      value: c.id,
+    }));
   }
 }

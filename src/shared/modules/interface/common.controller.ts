@@ -29,13 +29,21 @@ export class CommonController {
   async CurrencyAccounts(@Req() req: Request, @Param('cId') cid: string) {
     return await this.customerService.getAllCurrencyAccountsForDropdown(req.adminId, cid);
   }
-
+  
   @Get('currency/dropdown')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, IsAdminGuard)
   async getCurrencyofUser(@Req() req: Request) {
     return await this.customerService.getCurrencyofUser(req.adminId);
   }
+
+  @Get('chq-ref/dropdown')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+  async getRefBanks(@Req() req: Request) {
+    return await this.customerService.getRefBanks(req.adminId);
+  }
+
   @Get('get-module-by-id')
   async getModuleById(
     @Query('module') module: string,

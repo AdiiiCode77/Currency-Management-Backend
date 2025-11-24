@@ -110,7 +110,6 @@ export class CurrencyAccountService {
   
     return result?.userId || null;
   }
-  
 
   async createCurrencyEntry(dto: CreateCurrencyEntryDto, adminId: string) {
 
@@ -228,7 +227,6 @@ export class CurrencyAccountService {
   
     return results;
   }
-  
 
   async getDailyBook(filter: DailyBookDto, adminId: string) {
     const date = new Date(filter.date);
