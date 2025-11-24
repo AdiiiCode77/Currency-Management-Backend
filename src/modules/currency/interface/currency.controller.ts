@@ -98,9 +98,15 @@ export class CurrencyAccountController {
     return this.service.getCustomersByAdmin(req.adminId, paginationDto);
   }
 
-  @Get('daily-book')
-  async getDailyBook(@Query() dto: DailyBookDto) {
-    return await this.service.getDailyBook(dto);
+  @Get('daily-book/currency')
+  @ApiQuery({
+    name: 'date',
+    required: true,
+    type: String,
+    description: 'Date in YYYY-MM-DD format',
+  })
+  async getDailyBook(@Query() dto: DailyBookDto, @Req() req: Request) {
+    return await this.service.getDailyBook(dto, req.adminId);
   }
   // Update currency account (partial or full)
   @Patch(':id')
@@ -117,5 +123,11 @@ export class CurrencyAccountController {
     @Body() dto: UpdateCustomerCurrencyAccountDto,
   ) {
     return this.service.updateCustomer(id, dto);
+  }
+
+  @Get('ledgers-details/:cid')
+  @ApiOperation({summary: "Get All Ledgers Based on Currency Accounts Give Currency Account Id in Param as cid"})
+  async getLedgers(@Req() req: Request, @Param('cid') cid: string) {
+    return await this.service.getLedgers(req.adminId, cid);
   }
 }

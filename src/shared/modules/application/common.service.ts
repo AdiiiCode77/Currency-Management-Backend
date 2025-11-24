@@ -13,6 +13,7 @@ import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.en
 import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
 import { EmployeeAccountEntity } from 'src/modules/account/domain/entity/employee-account.entity';
 import { GeneralAccountEntity } from 'src/modules/account/domain/entity/general-account.entity';
+import { CustomerCurrencyAccountEntity } from 'src/modules/currency/domain/entities/currencies-account.entity';
 import { Repository } from 'typeorm';
 
 @Injectable()
@@ -35,6 +36,8 @@ export class CommonService {
     private currency: Repository<CurrencyAccountEntity>,
     @InjectRepository(AddCurrencyEntity)
     private currency_user: Repository<AddCurrencyEntity>,
+    @InjectRepository(CustomerCurrencyAccountEntity)
+    private currency_accounts: Repository<CustomerCurrencyAccountEntity>,
     
 
   ) {
@@ -56,6 +59,26 @@ export class CommonService {
         select: ['id', 'name'],
         order: { name: 'ASC' },
         where: { adminId },
+      });
+
+      return customers.map((c) => ({
+        label: c.name,
+        value: c.id,
+      }));
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to load customers. Please try again later.',
+      );
+    }
+  }
+
+  
+  async getAllCurrencyAccountsForDropdown(adminId: string, currency_id: string) {
+    try {
+      const customers = await this.currency_accounts.find({
+        select: ['id', 'name'],
+        order: { name: 'ASC' },
+        where: { adminId, currencyId: currency_id },
       });
 
       return customers.map((c) => ({
@@ -104,5 +127,25 @@ export class CommonService {
     }
 
     return record;
+  }
+
+  async getCurrencyofUser(adminId: string){
+    try {
+      const customers = await this.currency_user.find({
+        select: ['id', 'name', 'code'],
+        order: { name: 'ASC' },
+        where: { adminId },
+      });
+
+      return customers.map((c) => ({
+        label: c.name,
+        value: c.id,
+        code: c.code
+      }));
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to load customers. Please try again later.',
+      );
+    }
   }
 }

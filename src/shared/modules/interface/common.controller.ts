@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { CommonService } from '../application/common.service';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/shared/guards/jwt.guard';
@@ -23,6 +23,19 @@ export class CommonController {
     return await this.customerService.getAllBankForDropdown(req.adminId);
   }
 
+  @Get('currency/account/:cId')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+  async CurrencyAccounts(@Req() req: Request, @Param('cId') cid: string) {
+    return await this.customerService.getAllCurrencyAccountsForDropdown(req.adminId, cid);
+  }
+
+  @Get('currency/dropdown')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+  async getCurrencyofUser(@Req() req: Request) {
+    return await this.customerService.getCurrencyofUser(req.adminId);
+  }
   @Get('get-module-by-id')
   async getModuleById(
     @Query('module') module: string,

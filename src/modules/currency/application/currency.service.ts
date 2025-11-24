@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,6 +20,7 @@ import { CreateMultipleCurrencyEntryDto } from '../domain/dto/multiple-currency-
 import { DailyBookDto } from '../domain/dto/daily-book.dto';
 import { AdminEntity } from 'src/modules/users/domain/entities/admin.entity';
 import { UserEntity } from 'src/modules/users/domain/entities/user.entity';
+import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
 
 @Injectable()
 export class CurrencyAccountService {
@@ -35,6 +37,9 @@ export class CurrencyAccountService {
 
     @InjectRepository(CustomerCurrencyEntryEntity)
     private entryRepo: Repository<CustomerCurrencyEntryEntity>,
+
+    @InjectRepository(AddCurrencyEntity)
+    private currencyAccountRepo: Repository<AddCurrencyEntity>,
   ) {}
 
   async createCurrencyAccount(
@@ -45,6 +50,13 @@ export class CurrencyAccountService {
       where: { name: dto.name },
     });
 
+    const currencyAccount = await this.currencyAccountRepo.findOne({
+      where: {id: dto.currencyId}
+    })
+
+    if (!currencyAccount){
+      throw new BadRequestException('Currency Account Does Not Exists')
+    }
     if (exists) {
       throw new BadRequestException('Account with this name already exists');
     }
@@ -54,7 +66,6 @@ export class CurrencyAccountService {
       name: dto.name,
       accountInfo: dto.accountInfo,
       currencyId: dto.currencyId,
-      currency: { id: dto.currencyId } as any,
       adminId: adminId,
     });
 
@@ -118,15 +129,17 @@ export class CurrencyAccountService {
     if (dto.entryType === EntryType.JAMAM) {
       // Credit (Money added)
       account.balance += dto.amount;
-      admin.account_balance += dto.amount;
+      admin.account_balance -= dto.amount;
     }
     
     else if (dto.entryType === EntryType.BANAM) {
       // Debit (Money removed) — allow negative
       account.balance -= dto.amount;
-      admin.account_balance -= dto.amount;
+      admin.account_balance += dto.amount;
     }
     
+    await this.userRepo.save(admin)
+    await this.currencyRepo.save(account);
 
     const entry = this.entryRepo.create({
       date: dto.date,
@@ -136,11 +149,10 @@ export class CurrencyAccountService {
       description: dto.description,
       entryType: dto.entryType,
       adminId: adminId,
+      balance: account.balance
     });
 
-    await this.userRepo.save(admin)
     await this.entryRepo.save(entry);
-    await this.currencyRepo.save(account);
 
     return { entry, updatedBalance: account.balance };
   }
@@ -207,11 +219,11 @@ export class CurrencyAccountService {
     return results;
   }
 
-  async getDailyBook(filter: DailyBookDto) {
+  async getDailyBook(filter: DailyBookDto, adminId: string) {
     const date = new Date(filter.date);
   
     const entries = await this.entryRepo.find({
-      where: { date },
+      where: { date: date , adminId: adminId },
       relations: ['account'],
       order: { created_at: 'DESC' }
     });
@@ -224,4 +236,60 @@ export class CurrencyAccountService {
     }));
   }
 
+  async getLedgers(adminId: string, accountId: string) {
+    try {
+      const account = await this.currencyRepo.findOne({
+        where: { id: accountId, adminId: adminId },
+      });
+  
+      if (!account) {
+        throw new BadRequestException("No Account Found of This User in Your Profile");
+      }
+
+      const entries = await this.entryRepo.find({
+        where: { account: { id: accountId } },
+      });
+  
+      if (!entries || entries.length === 0) {
+        throw new BadRequestException("There is no Entry of this User Account");
+      }
+
+      const Accountentries = entries.map((entry) => ({
+        entryDate: entry.date,
+        accountName: entry.account?.name,
+        paymentType: entry.paymentType,
+        narration: `${entry.account?.name} To ${entry.description ?? ''}`.trim(),
+        debitAmount: entry.entryType === EntryType.BANAM ? entry.amount : 0,
+        creditAmount: entry.entryType === EntryType.JAMAM ? entry.amount : 0,
+        entryBalance: entry.balance
+      }));
+
+      let totalCr = 0;
+      let totalDr = 0;
+  
+      entries.forEach((entry) => {
+        if (entry.entryType === EntryType.JAMAM) {
+          totalCr += entry.amount;
+        } else {
+          totalDr += entry.amount;
+        }
+      });
+  
+      const total = totalCr - totalDr; // Credit − Debit
+
+      return {
+        accountName: account.name,
+        entries: Accountentries,
+        totals: {
+          totalCr,
+          totalDr,
+          netBalance: total, // Credit - Debit
+        },
+      };
+  
+    } catch (error) {
+      console.log(error);
+      throw new InternalServerErrorException("Something Went Wrong");
+    }
+  }
 }

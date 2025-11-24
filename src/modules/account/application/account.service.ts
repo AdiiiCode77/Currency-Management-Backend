@@ -194,9 +194,15 @@ export default class AccountService {
   }
 
   async createCurrencyAccount(dto: CreateCurrencyAccountDto, adminId: string) {
+    const currency = await this.currencyRepo.findOne({
+      where: { id: dto.currencyId }
+    });
+    if (!currency) {
+      throw new Error('Currency not found.');
+    }
     const account = this.currencyAccountRepo.create({
       ...dto,
-      adminId,
+      adminId
     });
     return await this.currencyAccountRepo.save(account);
   }

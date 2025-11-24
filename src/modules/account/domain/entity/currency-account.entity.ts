@@ -15,6 +15,12 @@ export class CurrencyAccountEntity {
   @Column()
   formulaType: string;
 
+  
+  @Column({
+    type: 'float', nullable: true , default: 0
+  })
+  price: number;
+
   @Column({ name: 'admin_id', type: 'uuid', nullable: false })
   adminId: string;
 

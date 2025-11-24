@@ -11,6 +11,7 @@ import { UserTypeEntity } from '../users/domain/entities/user-type.entity';
 import { AdminEntity } from '../users/domain/entities/admin.entity';
 import { CustomerEntity } from '../users/domain/entities/customer.entity';
 import { CustomerCurrencyEntryEntity } from './domain/entities/currency-entry.entity';
+import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { CustomerCurrencyEntryEntity } from './domain/entities/currency-entry.en
       AdminEntity,
       CustomerEntity,
       CustomerCurrencyEntryEntity,
+      AddCurrencyEntity
     ]),
   ],
   controllers: [CurrencyAccountController],

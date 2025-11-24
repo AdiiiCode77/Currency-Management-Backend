@@ -32,7 +32,18 @@ export class UserEntity {
   @Column({ name: 'block_status', type: 'bool', default: false })
   block_status: boolean;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({type: 'decimal',
+    precision: 30,
+    scale: 2,
+    default: 0,
+    transformer: {
+      to: (value: number | null | undefined) =>
+        value !== null && value !== undefined
+          ? Number(value).toFixed(2)
+          : '0.00', // safe fallback
+      from: (value: string | null) =>
+        value !== null ? parseFloat(value) : 0,
+    },})
   account_balance: number;
 
   @Column({type: "varchar", default: "PKR"})

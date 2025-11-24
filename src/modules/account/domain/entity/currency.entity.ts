@@ -11,14 +11,6 @@ export class AddCurrencyEntity {
   @Column()
   code: string;
 
-  @Column({
-    type: 'decimal',
-    precision: 10,  // total digits
-    scale: 2,       // digits after decimal
-    nullable: true,
-  })
-  price: number;  
-
   @Column({ name: 'admin_id', type: 'uuid', nullable: false })
   adminId: string;
 

@@ -20,7 +20,18 @@ export class BankPaymentEntryEntity {
   @JoinColumn({ name: 'drAccountId' })
   drAccount: CustomerAccountEntity;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ type: 'decimal',
+    precision: 30,
+    scale: 2,
+    default: 0,
+    transformer: {
+      to: (value: number | null | undefined) =>
+        value !== null && value !== undefined
+          ? Number(value).toFixed(2)
+          : '0.00', // safe fallback
+      from: (value: string | null) =>
+        value !== null ? parseFloat(value) : 0,
+    }, })
   amount: number;
 
   @Column({ type: 'text', nullable: true })

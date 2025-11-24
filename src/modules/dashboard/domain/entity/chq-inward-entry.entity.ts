@@ -22,7 +22,18 @@ export class ChqInwardEntryEntity {
   @ManyToOne(() => CustomerAccountEntity, { eager: true })
   toAccount: CustomerAccountEntity;
 
-  @Column({ type: 'numeric' })
+  @Column({type: 'decimal',
+    precision: 30,
+    scale: 2,
+    default: 0,
+    transformer: {
+      to: (value: number | null | undefined) =>
+        value !== null && value !== undefined
+          ? Number(value).toFixed(2)
+          : '0.00',
+      from: (value: string | null) =>
+        value !== null ? parseFloat(value) : 0,
+    }, })
   amount: number;
 
   @ManyToOne(() => AddChqRefBankEntity, { eager: true })

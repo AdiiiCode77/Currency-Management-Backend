@@ -20,7 +20,7 @@ export class EmployeeAccountEntity {
   @Column({ nullable: false })
   address: string;
 
-  @Column({ name: 'monthly_salary', type: 'decimal', precision: 10, scale: 2, nullable: false })
+  @Column({ name: 'monthly_salary', type: 'decimal', precision: 30, scale: 2, nullable: false })
   monthlySalary: number;
 
   @Column({ name: 'joining_date', type: 'date', nullable: false })
