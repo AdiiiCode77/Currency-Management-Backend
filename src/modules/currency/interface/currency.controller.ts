@@ -76,11 +76,10 @@ export class CurrencyAccountController {
     return this.service.getCustomerById(id);
   }
 
-@Get('all-customer/:currencyId')
+  @Get('all-customer/:currencyId')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, IsAdminGuard)
   @ApiOperation({
-
     summary: 'Get Customer Currency Accounts for Admin (Paginated)',
   })
   @ApiQuery({
@@ -95,8 +94,16 @@ export class CurrencyAccountController {
     type: Number,
     description: 'Number of items per page (default 10)',
   })
-  getByAdmin(@Req() req: Request, @Query() paginationDto: PaginationDto, @Param(':currencyId') cuurency: string) {
-    return this.service.getCustomersByAdmin(req.adminId,cuurency, paginationDto);
+  getByAdmin(
+    @Req() req: Request,
+    @Query() paginationDto: PaginationDto,
+    @Param(':currencyId') cuurency: string,
+  ) {
+    return this.service.getCustomersByAdmin(
+      req.adminId,
+      cuurency,
+      paginationDto,
+    );
   }
 
   @Get('daily-book/currency')
@@ -127,7 +134,10 @@ export class CurrencyAccountController {
   }
 
   @Get('ledgers-details/:cid')
-  @ApiOperation({summary: "Get All Ledgers Based on Currency Accounts Give Currency Account Id in Param as cid"})
+  @ApiOperation({
+    summary:
+      'Get All Ledgers Based on Currency Accounts Give Currency Account Id in Param as cid',
+  })
   async getLedgers(@Req() req: Request, @Param('cid') cid: string) {
     return await this.service.getLedgers(req.adminId, cid);
   }
