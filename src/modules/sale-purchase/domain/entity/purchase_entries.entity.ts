@@ -1,4 +1,5 @@
 import { CurrencyAccountEntity } from 'src/modules/account/domain/entity/currency-account.entity';
+import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
 import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
 import {
     Entity,
@@ -18,13 +19,15 @@ import {
     @Column({ type: 'date' })
     date: Date;
   
-    @ManyToOne(() => CurrencyAccountEntity, { eager: true })
-    @JoinColumn({ name: 'currency_dr_id' })
-    currencyDr: CurrencyAccountEntity;
-  
+    @Column({ name: 'currency_dr_id', type: 'uuid', nullable: false })
+    currencyDrId: string;
+
     @Column({ name: 'manual_ref', nullable: true })
     manualRef: string;
   
+    @Column({name: "customer_account_id"})
+    customerAccountId: string;
+
     @ManyToOne(() => CustomerAccountEntity, { eager: true })
     @JoinColumn({ name: 'customer_account_id' })
     customerAccount: CustomerAccountEntity;

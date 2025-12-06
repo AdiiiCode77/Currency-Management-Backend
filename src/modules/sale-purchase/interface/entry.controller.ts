@@ -26,11 +26,7 @@ export class SalePurchaseController {
     description:
       'Creates a purchase entry with currency DR, customer account, PKR calculation, and admin audit.',
   })
-  @ApiBody({
-    type: CreatePurchaseDto,
-    description:
-      'Payload required to create a Purchase Entry. Ensures PKR amount matches (currencyAmount * rate).',
-  })
+  @ApiBody({ type: CreatePurchaseDto })
   createPurchase(@Body() dto: CreatePurchaseDto, @Req() req: Request) {
     return this.service.createPurchase(dto, req.adminId);
   }

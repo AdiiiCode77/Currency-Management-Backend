@@ -7,6 +7,11 @@ import { CurrencyAccountEntity } from 'src/modules/account/domain/entity/currenc
 import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
 import { CreatePurchaseDto } from '../domain/dto/purchase-create.dto';
 import { CreateSellingDto } from '../domain/dto/selling-create.dto';
+import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
+import { UserEntity } from 'src/modules/users/domain/entities/user.entity';
+import { AdminEntity } from 'src/modules/users/domain/entities/admin.entity';
+import { UserProfileEntity } from 'src/modules/users/domain/entities/user-profiles.entity';
+import { CurrencyRelationEntity } from '../domain/entity/currencyRelation.entity';
 
 @Injectable()
 export class SalePurchaseService {
@@ -17,25 +22,111 @@ export class SalePurchaseService {
     @InjectRepository(SellingEntryEntity)
     private sellingRepo: Repository<SellingEntryEntity>,
 
-    @InjectRepository(CurrencyAccountEntity)
-    private currencyRepo: Repository<CurrencyAccountEntity>,
+    @InjectRepository(AddCurrencyEntity)
+    private currencyRepo: Repository<AddCurrencyEntity>,
 
     @InjectRepository(CustomerAccountEntity)
     private customerRepo: Repository<CustomerAccountEntity>,
 
+    @InjectRepository(UserEntity)
+    private userRepo: Repository<UserEntity>,
+
+    @InjectRepository(AdminEntity)
+    private adminRepo: Repository<AdminEntity>,
+
+    @InjectRepository(UserProfileEntity)
+    private userProfileRepo: Repository<UserProfileEntity>,
+
+    @InjectRepository(CurrencyRelationEntity)
+    private readonly currency_relation: Repository<CurrencyRelationEntity>
   ) {}
 
-  async createPurchase(dto: CreatePurchaseDto, adminId: string) {
-    const currency = await this.currencyRepo.findOne({ where: { id: dto.currencyDrId } });
-    if (!currency) throw new NotFoundException('Currency DR Account not found');
-
-    const customer = await this.customerRepo.findOne({ where: { id: dto.customerAccountId } });
-    if (!customer) throw new NotFoundException('Customer Account not found');
-
-    if (dto.amountPkr !== Number(dto.amountCurrency) * Number(dto.rate)) {
-      throw new BadRequestException('Amount(PKR) mismatch with rate calculation');
+  async getCurrencyData(id: string) {
+    const currency = await this.currencyRepo.findOne({
+      where: { id },
+      select: ["code"],
+    });
+  
+    if (!currency) {
+      throw new NotFoundException("Currency Account not found");
     }
+  
+    const { totalAmount, avgAmount, lastPurchaseCode } =
+      await this.sellingRepo
+        .createQueryBuilder("s")
+        .select("SUM(s.amountCurrency)", "totalAmount")
+        .addSelect("AVG(s.rate)", "avgAmount")
+        .addSelect(
+          `(SELECT s2.purchaseCode 
+             FROM selling s2 
+             WHERE s2.fromCurrencyId = :id 
+             ORDER BY s2.createdAt DESC 
+             LIMIT 1)`,
+          "lastPurchaseCode"
+        )
+        .where("s.fromCurrencyId = :id", { id })
+        .getRawOne();
 
+    let nextNumber = 101;
+  
+    if (lastPurchaseCode) {
+      const num = Number(lastPurchaseCode.split("-")[1]);
+      if (!isNaN(num)) nextNumber = num + 1;
+    }
+  
+    const P_No = `${currency.code}-${nextNumber}`;
+
+    if (!totalAmount) {
+      return {
+        currency: 0,
+        AvgRate: 0,
+        Pkr: 0,
+        P_No,
+      };
+    }
+  
+    const total = Number(totalAmount);
+    const avg = Number(avgAmount);
+    const Pkr = total * 67.8;
+  
+    return {
+      currency: total,
+      AvgRate: avg,
+      Pkr,
+      P_No,
+    };
+  }
+  
+  
+  async getPkrAmount(AmountCurrenct: number, Rate: number){
+    return {
+      amountPkr: (AmountCurrenct * Rate)
+    }
+ }
+  async createPurchase(dto: CreatePurchaseDto, adminId: string) {
+    const admin = await this.adminRepo.findOne({
+      where: { id: adminId },
+    });
+    if (!admin) throw new NotFoundException("Admin not found");
+  
+    const userProfile = await this.userProfileRepo.findOne({
+      where: { id: admin.user_profile_id },
+      relations: ["user"],
+    });
+  
+    if (!userProfile) throw new NotFoundException("User profile not found");
+  
+    const user = userProfile.user;
+    if (!user) throw new NotFoundException("User not found");
+  
+    const [currency, customer] = await Promise.all([
+      this.currencyRepo.findOne({ where: { id: dto.currencyDrId } }),
+      this.customerRepo.findOne({ where: { id: dto.customerAccountId } }),
+    ]);
+  
+    if (!currency) throw new NotFoundException("Currency DR Account not found");
+    if (!customer) throw new NotFoundException("Customer Account not found");
+  
     const entry = this.purchaseRepo.create({
       date: dto.date,
       manualRef: dto.manualRef,
@@ -43,13 +134,42 @@ export class SalePurchaseService {
       rate: dto.rate,
       amountPkr: dto.amountPkr,
       description: dto.description,
-      currencyDr: currency,
+      currencyDrId: currency.id,
+      customerAccountId: dto.customerAccountId,
       customerAccount: customer,
-      adminId: adminId,
+      adminId,
     });
-
-    return this.purchaseRepo.save(entry);
+  
+    let relation = await this.currency_relation.findOne({
+      where: {
+        userId: user.id,
+        adminId,
+        currencyId: currency.id,
+      },
+    });
+  
+    if (!relation) {
+      relation = this.currency_relation.create({
+        userId: user.id,
+        adminId,
+        currencyId: currency.id,
+        balance: dto.amountCurrency,
+        balancePkr: dto.amountPkr,
+      });
+    } else {
+      relation.balance += Number(dto.amountCurrency);
+      relation.balancePkr+= Number(dto.amountPkr)
+    }
+  
+    await Promise.all([
+      this.currency_relation.save(relation),
+      this.purchaseRepo.save(entry),
+    ]);
+  
+    return entry;
   }
+  
+  
 
   async createSelling(dto: CreateSellingDto, adminId: string) {
     const currency = await this.currencyRepo.findOne({ where: { id: dto.fromCurrencyId } });
