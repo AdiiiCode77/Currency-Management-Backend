@@ -1,0 +1,1 @@
+export const DEFAULT_GLOBAL_OTP_LENGTH = 4;
