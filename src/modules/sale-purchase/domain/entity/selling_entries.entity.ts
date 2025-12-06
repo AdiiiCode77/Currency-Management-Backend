@@ -15,6 +15,13 @@ export class SellingEntryEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({
+    name: 'sale_no',
+    type: 'int',
+    generated: 'increment',
+  })
+  saleNumber: number;
+
   @Column({ type: 'date' })
   date: Date;
 

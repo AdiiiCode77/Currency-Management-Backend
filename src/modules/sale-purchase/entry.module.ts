@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { SalePurchaseService } from './application/entry.service';
 
-
 import { CurrencyAccountEntity } from 'src/modules/account/domain/entity/currency-account.entity';
 import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
 import { PurchaseEntryEntity } from './domain/entity/purchase_entries.entity';
@@ -16,6 +15,8 @@ import { UserProfileEntity } from '../users/domain/entities/user-profiles.entity
 import { UserTypeEntity } from '../users/domain/entities/user-type.entity';
 import { AdminEntity } from '../users/domain/entities/admin.entity';
 import { CustomerEntity } from '../users/domain/entities/customer.entity';
+import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
+import { CurrencyRelationEntity } from './domain/entity/currencyRelation.entity';
 
 @Module({
   imports: [
@@ -28,11 +29,13 @@ import { CustomerEntity } from '../users/domain/entities/customer.entity';
       UserProfileEntity,
       UserTypeEntity,
       AdminEntity,
-      CustomerEntity
+      CustomerEntity,
+      AddCurrencyEntity,
+      CurrencyRelationEntity,
     ]),
   ],
   controllers: [SalePurchaseController],
   providers: [SalePurchaseService, JwtService, UserService],
-  exports: [SalePurchaseService], 
+  exports: [SalePurchaseService],
 })
 export class SalePurchaseModule {}

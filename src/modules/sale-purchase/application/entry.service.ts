@@ -1,9 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { PurchaseEntryEntity } from '../domain/entity/purchase_entries.entity';
 import { SellingEntryEntity } from '../domain/entity/selling_entries.entity';
-import { CurrencyAccountEntity } from 'src/modules/account/domain/entity/currency-account.entity';
 import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
 import { CreatePurchaseDto } from '../domain/dto/purchase-create.dto';
 import { CreateSellingDto } from '../domain/dto/selling-create.dto';
@@ -38,153 +41,164 @@ export class SalePurchaseService {
     private userProfileRepo: Repository<UserProfileEntity>,
 
     @InjectRepository(CurrencyRelationEntity)
-    private readonly currency_relation: Repository<CurrencyRelationEntity>
+    private readonly currency_relation: Repository<CurrencyRelationEntity>,
+
+    private readonly dataSource: DataSource,
   ) {}
 
-  async getCurrencyData(id: string) {
-    const currency = await this.currencyRepo.findOne({
-      where: { id },
-      select: ["code"],
-    });
-  
-    if (!currency) {
-      throw new NotFoundException("Currency Account not found");
-    }
-  
-    const { totalAmount, avgAmount, lastPurchaseCode } =
-      await this.sellingRepo
-        .createQueryBuilder("s")
-        .select("SUM(s.amountCurrency)", "totalAmount")
-        .addSelect("AVG(s.rate)", "avgAmount")
-        .addSelect(
-          `(SELECT s2.purchaseCode 
-             FROM selling s2 
-             WHERE s2.fromCurrencyId = :id 
-             ORDER BY s2.createdAt DESC 
-             LIMIT 1)`,
-          "lastPurchaseCode"
-        )
-        .where("s.fromCurrencyId = :id", { id })
-        .getRawOne();
+  async getCurrencyData(
+    adminId: string,
+    id: string,
+    code: 'sale' | 'purchase',
+  ) {
+    const currency = await this.currencyRepo.findOne({ where: { id } });
+    if (!currency) throw new BadRequestException('Currency Not Exists');
 
-    let nextNumber = 101;
-  
-    if (lastPurchaseCode) {
-      const num = Number(lastPurchaseCode.split("-")[1]);
-      if (!isNaN(num)) nextNumber = num + 1;
-    }
-  
-    const P_No = `${currency.code}-${nextNumber}`;
+    const avgRateResult = await this.sellingRepo
+      .createQueryBuilder('s')
+      .select('AVG(s.rate)', 'avgRate')
+      .where('s.adminId = :adminId', { adminId })
+      .getRawOne();
 
-    if (!totalAmount) {
-      return {
-        currency: 0,
-        AvgRate: 0,
-        Pkr: 0,
-        P_No,
-      };
+    const AvgRate = parseFloat(avgRateResult?.avgRate) || 0;
+
+    const balancesResult = await this.currency_relation
+      .createQueryBuilder('cr')
+      .select('SUM(cr.balance)', 'totalCurrency')
+      .addSelect('SUM(cr.balancePkr)', 'totalPkr')
+      .where('cr.currencyId = :currencyId', { currencyId: id })
+      .andWhere('cr.adminId = :adminId', { adminId })
+      .getRawOne();
+
+    const totalCurrency = parseFloat(balancesResult?.totalCurrency) || 0;
+    const totalPkr = parseFloat(balancesResult?.totalPkr) || 0;
+
+    const prefix = code === 'sale' ? 'S' : 'P';
+    let nextNumber = 1;
+
+    if (code === 'sale') {
+      const lastSale = await this.sellingRepo
+        .createQueryBuilder('s')
+        .select('s.saleNumber', 'saleNumber')
+        .where('s.adminId = :adminId', { adminId })
+        .orderBy('s.saleNumber', 'DESC')
+        .limit(1)
+        .getRawOne<{ saleNumber: number }>();
+
+      nextNumber = lastSale ? lastSale.saleNumber + 1 : 1;
+    } else {
+      const lastPurchase = await this.purchaseRepo
+        .createQueryBuilder('p')
+        .select('p.purchaseNumber', 'purchaseNumber')
+        .where('p.adminId = :adminId', { adminId })
+        .orderBy('p.purchaseNumber', 'DESC')
+        .limit(1)
+        .getRawOne<{ purchaseNumber: number }>();
+
+      nextNumber = lastPurchase ? lastPurchase.purchaseNumber + 1 : 1;
     }
-  
-    const total = Number(totalAmount);
-    const avg = Number(avgAmount);
-    const Pkr = total * 67.8;
-  
+
     return {
-      currency: total,
-      AvgRate: avg,
-      Pkr,
-      P_No,
+      totalPkr,
+      totalCurrency,
+      AvgRate,
+      S_NO: `${currency.code}-${prefix}-${nextNumber}`,
     };
   }
-  
-  
-  async getPkrAmount(AmountCurrenct: number, Rate: number){
+
+  getPkrAmount(AmountCurrenct: number, Rate: number) {
     return {
-      amountPkr: (AmountCurrenct * Rate)
-    }
- }
-  async createPurchase(dto: CreatePurchaseDto, adminId: string) {
-    const admin = await this.adminRepo.findOne({
-      where: { id: adminId },
-    });
-    if (!admin) throw new NotFoundException("Admin not found");
-  
-    const userProfile = await this.userProfileRepo.findOne({
-      where: { id: admin.user_profile_id },
-      relations: ["user"],
-    });
-  
-    if (!userProfile) throw new NotFoundException("User profile not found");
-  
-    const user = userProfile.user;
-    if (!user) throw new NotFoundException("User not found");
-  
-    const [currency, customer] = await Promise.all([
-      this.currencyRepo.findOne({ where: { id: dto.currencyDrId } }),
-      this.customerRepo.findOne({ where: { id: dto.customerAccountId } }),
-    ]);
-  
-    if (!currency) throw new NotFoundException("Currency DR Account not found");
-    if (!customer) throw new NotFoundException("Customer Account not found");
-  
-    const entry = this.purchaseRepo.create({
-      date: dto.date,
-      manualRef: dto.manualRef,
-      amountCurrency: dto.amountCurrency,
-      rate: dto.rate,
-      amountPkr: dto.amountPkr,
-      description: dto.description,
-      currencyDrId: currency.id,
-      customerAccountId: dto.customerAccountId,
-      customerAccount: customer,
-      adminId,
-    });
-  
-    let relation = await this.currency_relation.findOne({
-      where: {
-        userId: user.id,
-        adminId,
-        currencyId: currency.id,
-      },
-    });
-  
-    if (!relation) {
-      relation = this.currency_relation.create({
-        userId: user.id,
-        adminId,
-        currencyId: currency.id,
-        balance: dto.amountCurrency,
-        balancePkr: dto.amountPkr,
-      });
-    } else {
-      relation.balance += Number(dto.amountCurrency);
-      relation.balancePkr+= Number(dto.amountPkr)
-    }
-  
-    await Promise.all([
-      this.currency_relation.save(relation),
-      this.purchaseRepo.save(entry),
-    ]);
-  
-    return entry;
+      amountPkr: AmountCurrenct * Rate,
+    };
   }
-  
-  
+
+  async createPurchase(dto: CreatePurchaseDto, adminId: string) {
+    return await this.dataSource.transaction(async (manager) => {
+      const adminData = await this.adminRepo
+        .createQueryBuilder('a')
+        .leftJoin('user_profiles', 'up', 'up.id = a.user_profile_id')
+        .leftJoin('users', 'u', 'u.id = up.user_id')
+        .where('a.id = :adminId', { adminId })
+        .select(['a.id AS admin_id', 'up.id AS up_id', 'u.id AS u_id'])
+        .getRawOne();
+
+      if (!adminData) throw new NotFoundException('Admin not found');
+      if (!adminData.up_id)
+        throw new NotFoundException('User profile not found');
+      if (!adminData.u_id) throw new NotFoundException('User not found');
+
+      const userId = adminData.u_id;
+
+      // 2. Fetch currency + customer
+      const [currency, customer] = await Promise.all([
+        manager.findOneBy(AddCurrencyEntity, { id: dto.currencyDrId }),
+        manager.findOneBy(CustomerAccountEntity, { id: dto.customerAccountId }),
+      ]);
+
+      if (!currency)
+        throw new NotFoundException('Currency DR Account not found');
+      if (!customer) throw new NotFoundException('Customer Account not found');
+
+      const entry = manager.create(PurchaseEntryEntity, {
+        date: dto.date,
+        manualRef: dto.manualRef,
+        amountCurrency: dto.amountCurrency,
+        rate: dto.rate,
+        amountPkr: dto.amountPkr,
+        description: dto.description,
+        currencyDrId: currency.id,
+        customerAccountId: dto.customerAccountId,
+        customerAccount: customer,
+        adminId,
+      });
+
+      const relation = await manager.findOneBy(CurrencyRelationEntity, {
+        userId,
+        adminId,
+        currencyId: currency.id,
+      });
+
+      if (!relation) {
+        await manager.insert(CurrencyRelationEntity, {
+          userId,
+          adminId,
+          currencyId: currency.id,
+          balance: dto.amountCurrency,
+          balancePkr: dto.amountPkr,
+        });
+      } else {
+        await manager.update(
+          CurrencyRelationEntity,
+          { id: relation.id },
+          {
+            balance: Number(relation.balance) + Number(dto.amountCurrency),
+            balancePkr: Number(relation.balancePkr) + Number(dto.amountPkr),
+          },
+        );
+      }
+
+      await manager.save(PurchaseEntryEntity, entry);
+
+      return entry;
+    });
+  }
 
   async createSelling(dto: CreateSellingDto, adminId: string) {
-    const currency = await this.currencyRepo.findOne({ where: { id: dto.fromCurrencyId } });
-    if (!currency) throw new NotFoundException('From Currency Account not found');
+    const currency = await this.currencyRepo.findOne({
+      where: { id: dto.fromCurrencyId },
+    });
+    if (!currency)
+      throw new NotFoundException('From Currency Account not found');
 
     if (dto.amountPkr !== Number(dto.amountCurrency) * Number(dto.rate)) {
       throw new BadRequestException('PKR amount mismatch with conversion rate');
     }
 
     const customer = await this.customerRepo.findOne({
-        where: { id: dto.customerAccountId },
-      });
-      
-      if (!customer) throw new NotFoundException('Customer Account not found');
-      
+      where: { id: dto.customerAccountId },
+    });
+
+    if (!customer) throw new NotFoundException('Customer Account not found');
 
     const entry = this.sellingRepo.create({
       date: dto.date,
