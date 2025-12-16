@@ -1,1 +1,1 @@
-export const adminTypes = ['admin', 'superadmin'];
+export const adminTypes = ['admin', 'superadmin'] as const;
