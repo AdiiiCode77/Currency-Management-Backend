@@ -16,12 +16,18 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SalePurchaseModule } from './modules/sale-purchase/entry.module';
 import { CurrencyModule } from './modules/currency/currency.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import * as redisStore from 'cache-manager-redis-store';
+import { RedisModule } from './shared/modules/redis/redis.module';
 
 @Module({
   imports: [
     CacheModule.register({
-      ttl: 30, // seconds (perfect for dropdown)
-      max: 1000,
+      store: redisStore,
+      host: process.env.REDIS_HOST,  // e.g., your Redis hostname
+      port: +process.env.REDIS_PORT, // e.g., 6379
+      password: process.env.REDIS_PASSWORD, // optional
+      ttl: 600, // seconds
+      db: 0,
       isGlobal: true,
     }),
     TypeOrmModule.forRoot({
@@ -44,6 +50,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     DashboardModule,
     SalePurchaseModule,
     CurrencyModule,
+
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -80,6 +87,7 @@ import { CacheModule } from '@nestjs/cache-manager';
       },
     }),
     LoggerModule,
+    RedisModule
   ],
   controllers: [],
   providers: [],

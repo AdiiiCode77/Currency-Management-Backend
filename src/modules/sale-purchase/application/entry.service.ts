@@ -18,6 +18,7 @@ import { UserProfileEntity } from 'src/modules/users/domain/entities/user-profil
 import { CurrencyRelationEntity } from '../domain/entity/currencyRelation.entity';
 import { CurrencyPnlPreviewDto } from '../domain/dto/CurrencyPnlPreview.dto';
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
+import { RedisService } from 'src/shared/modules/redis/redis.service';
 
 @Injectable()
 export class SalePurchaseService {
@@ -48,6 +49,8 @@ export class SalePurchaseService {
     private readonly currency_relation: Repository<CurrencyRelationEntity>,
 
     private readonly dataSource: DataSource,
+    
+    private readonly redisService: RedisService
   ) {}
 
   async getCurrencyPnlPreview(adminId: string, dto: CurrencyPnlPreviewDto) {
@@ -86,79 +89,91 @@ export class SalePurchaseService {
     };
   }
 
-  async getCurrencyData(
-    adminId: string,
-    id: string,
-    code: 'sale' | 'purchase',
-  ) {
-    const cacheKey = `currency-dropdown:${adminId}:${id}:${code}`;
+async getCurrencyData(
+  adminId: string,
+  id: string,
+  code: 'sale' | 'purchase',
+) {
+  const cacheKey = `currency-dropdown:${adminId}:${id}:${code}`;
+  console.log('🔍 Checking cache for key:', cacheKey);
 
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
+  // Check Redis cache first
+  const cached = await this.redisService.getValue<{
+    totalPkr: number;
+    totalCurrency: number;
+    AvgRate: number;
+    S_NO: string;
+  }>(cacheKey);
 
-    const [currency, balances, avgRateResult] = await Promise.all([
-      this.currencyRepo.findOne({
-        where: { id },
-        select: ['id', 'code'],
-      }),
-
-      this.currency_relation
-        .createQueryBuilder('cr')
-        .select('SUM(cr.balance)', 'totalCurrency')
-        .addSelect('SUM(cr.balancePkr)', 'totalPkr')
-        .where('cr.currencyId = :currencyId', { currencyId: id })
-        .andWhere('cr.adminId = :adminId', { adminId })
-        .getRawOne(),
-
-      this.sellingRepo
-        .createQueryBuilder('s')
-        .select('AVG(s.rate)', 'avgRate')
-        .where('s.adminId = :adminId', { adminId })
-        .getRawOne(),
-    ]);
-
-    if (!currency) {
-      throw new BadRequestException('Currency Not Exists');
-    }
-
-    const totalCurrency = +balances?.totalCurrency || 0;
-    const totalPkr = +balances?.totalPkr || 0;
-    const AvgRate = +avgRateResult?.avgRate || 0;
-
-    const prefix = code === 'sale' ? 'S' : 'P';
-
-    const lastRecord =
-      code === 'sale'
-        ? await this.sellingRepo
-            .createQueryBuilder('s')
-            .select('s.saleNumber', 'number')
-            .where('s.adminId = :adminId', { adminId })
-            .orderBy('s.saleNumber', 'DESC')
-            .limit(1)
-            .getRawOne<{ number: number }>()
-        : await this.purchaseRepo
-            .createQueryBuilder('p')
-            .select('p.purchaseNumber', 'number')
-            .where('p.adminId = :adminId', { adminId })
-            .orderBy('p.purchaseNumber', 'DESC')
-            .limit(1)
-            .getRawOne<{ number: number }>();
-
-    const nextNumber = lastRecord?.number ? lastRecord.number + 1 : 1;
-
-    const response = {
-      totalPkr,
-      totalCurrency,
-      AvgRate,
-      S_NO: `${currency.code}-${prefix}-${nextNumber}`,
-    };
-
-    await this.cacheManager.set(cacheKey, response, 30);
-
-    return response;
+  if (cached) {
+    console.log('✅ Cache HIT – returning cached currency data');
+    return cached;
   }
+
+  console.log('❌ Cache MISS – fetching from DB');
+
+  const [currency, balances, avgRateResult] = await Promise.all([
+    this.currencyRepo.findOne({
+      where: { id },
+      select: ['id', 'code'],
+    }),
+    this.currency_relation
+      .createQueryBuilder('cr')
+      .select('SUM(cr.balance)', 'totalCurrency')
+      .addSelect('SUM(cr.balancePkr)', 'totalPkr')
+      .where('cr.currencyId = :currencyId', { currencyId: id })
+      .andWhere('cr.adminId = :adminId', { adminId })
+      .getRawOne(),
+    this.sellingRepo
+      .createQueryBuilder('s')
+      .select('AVG(s.rate)', 'avgRate')
+      .where('s.adminId = :adminId', { adminId })
+      .getRawOne(),
+  ]);
+
+  if (!currency) {
+    throw new BadRequestException('Currency Not Exists');
+  }
+
+  const totalCurrency = +balances?.totalCurrency || 0;
+  const totalPkr = +balances?.totalPkr || 0;
+  const AvgRate = +avgRateResult?.avgRate || 0;
+
+  const prefix = code === 'sale' ? 'S' : 'P';
+
+  const lastRecord =
+    code === 'sale'
+      ? await this.sellingRepo
+          .createQueryBuilder('s')
+          .select('s.saleNumber', 'number')
+          .where('s.adminId = :adminId', { adminId })
+          .orderBy('s.saleNumber', 'DESC')
+          .limit(1)
+          .getRawOne<{ number: number }>()
+      : await this.purchaseRepo
+          .createQueryBuilder('p')
+          .select('p.purchaseNumber', 'number')
+          .where('p.adminId = :adminId', { adminId })
+          .orderBy('p.purchaseNumber', 'DESC')
+          .limit(1)
+          .getRawOne<{ number: number }>();
+
+  const nextNumber = lastRecord?.number ? lastRecord.number + 1 : 1;
+
+  const response = {
+    totalPkr,
+    totalCurrency,
+    AvgRate,
+    S_NO: `${currency.code}-${prefix}-${nextNumber}`,
+  };
+
+  // Cache in Redis for 30 seconds
+  await this.redisService.setValue(cacheKey, response, 30);
+  console.log('💾 Cache SET for key:', cacheKey);
+
+  return response;
+}
+
 
   async updateCurrencyRelation(
     manager: EntityManager,

@@ -20,7 +20,7 @@ import { CurrencyAccountEntity } from '../account/domain/entity/currency-account
 import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
 import { BankAccountEntity } from '../account/domain/entity/bank-account.entity';
 import { CustomerCurrencyAccountEntity } from '../currency/domain/entities/currencies-account.entity';
-
+import { RedisService } from 'src/shared/modules/redis/redis.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -44,7 +44,8 @@ import { CustomerCurrencyAccountEntity } from '../currency/domain/entities/curre
     UserService,
     JwtService,
     MailService,
-    CommonService
+    CommonService,
+    RedisService
   ],
   controllers: [UserController, CommonController],
   exports: [UserService],

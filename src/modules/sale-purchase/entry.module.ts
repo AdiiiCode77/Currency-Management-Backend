@@ -17,6 +17,7 @@ import { AdminEntity } from '../users/domain/entities/admin.entity';
 import { CustomerEntity } from '../users/domain/entities/customer.entity';
 import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
 import { CurrencyRelationEntity } from './domain/entity/currencyRelation.entity';
+import { RedisService } from 'src/shared/modules/redis/redis.service';
 
 @Module({
   imports: [
@@ -35,7 +36,7 @@ import { CurrencyRelationEntity } from './domain/entity/currencyRelation.entity'
     ]),
   ],
   controllers: [SalePurchaseController],
-  providers: [SalePurchaseService, JwtService, UserService],
+  providers: [SalePurchaseService, JwtService, UserService, RedisService],
   exports: [SalePurchaseService],
 })
 export class SalePurchaseModule {}
