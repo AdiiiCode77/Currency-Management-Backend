@@ -17,7 +17,6 @@ import { UserTypeEntity } from '../../users/domain/entities/user-type.entity';
 import { AdminEntity } from '../../users/domain/entities/admin.entity';
 import AppDataSource from '../../../../data-source';
 import { UserProfileEntity } from '../../users/domain/entities/user-profiles.entity';
-import { adminTypes } from 'src/shared/enums/admin.enum';
 import {
   ISignupFirstStep,
   ISignupSecondStep,
@@ -25,7 +24,6 @@ import {
 import { MailService } from 'src/shared/modules/mail/mail.service';
 import { generateOtp } from 'src/shared/helpers/generateOTP';
 import { OtpSignupEntity } from 'src/modules/otp/domain/entities/otp-signup.entity';
-import { OtpEntity } from 'src/modules/otp/domain/entities/otp.entity';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()

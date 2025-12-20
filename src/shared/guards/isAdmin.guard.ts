@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { UserService } from 'src/modules/users/application/user.service';
 import { Request } from 'express';
-import { adminTypes } from 'src/shared/enums/admin.enum';
 
 @Injectable()
 export class IsAdminGuard implements CanActivate {
@@ -38,10 +37,6 @@ export class IsAdminGuard implements CanActivate {
       throw new NotFoundException([
         'No such admin exists with this profile id',
       ]);
-    }
-
-    if (!Object.values(adminTypes).includes(admin.type)) {
-      throw new ForbiddenException(['Invalid admin type']);
     }
 
     request.adminId = admin.id;

@@ -28,7 +28,7 @@ export class SellingEntryEntity {
   @Column({ name: 'from_currency_id', type: 'uuid', nullable: false })
   fromCurrencyId: string;
 
-  @ManyToOne(() => CurrencyAccountEntity, { eager: true })
+  @ManyToOne(() => AddCurrencyEntity, { eager: true })
   @JoinColumn({ name: 'from_currency_id' })
   fromCurrency: AddCurrencyEntity;
 

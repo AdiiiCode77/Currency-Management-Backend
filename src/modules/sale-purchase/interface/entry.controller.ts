@@ -15,6 +15,7 @@ import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/shared/guards/jwt.guard';
 import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
 import { Request } from 'express';
+import { CurrencyPnlPreviewDto } from '../domain/dto/CurrencyPnlPreview.dto';
 
 @ApiTags('Sale & Purchase Entries')
 @Controller('api/v1/sale-purchase')
@@ -61,5 +62,20 @@ export class SalePurchaseController {
     @Query('code') code: 'sale' | 'purchase',
   ) {
     return await this.service.getCurrencyData(req.adminId, currencyId, code);
+  }
+
+  @Post('pnl/preview')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+    @ApiBody({
+    type: CurrencyPnlPreviewDto,
+    description:
+      'Payload required to create a Selling Entry. Validates conversion rates and relations.',
+  })
+  async getCurrencyPnlPreview(
+    @Body() dto: CurrencyPnlPreviewDto,
+    @Req() req: Request,
+  ) {
+    return this.service.getCurrencyPnlPreview(req.adminId, dto);
   }
 }

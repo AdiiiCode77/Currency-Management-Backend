@@ -15,9 +15,15 @@ import { JournalModule } from './modules/journal/journal.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SalePurchaseModule } from './modules/sale-purchase/entry.module';
 import { CurrencyModule } from './modules/currency/currency.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
+    CacheModule.register({
+      ttl: 30, // seconds (perfect for dropdown)
+      max: 1000,
+      isGlobal: true,
+    }),
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST,
