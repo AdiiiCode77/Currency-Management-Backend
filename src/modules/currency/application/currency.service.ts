@@ -21,6 +21,7 @@ import { DailyBookDto } from '../domain/dto/daily-book.dto';
 import { AdminEntity } from 'src/modules/users/domain/entities/admin.entity';
 import { UserEntity } from 'src/modules/users/domain/entities/user.entity';
 import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
+import { RedisService } from 'src/shared/modules/redis/redis.service';
 
 @Injectable()
 export class CurrencyAccountService {
@@ -39,6 +40,8 @@ export class CurrencyAccountService {
 
     @InjectRepository(AddCurrencyEntity)
     private currencyAccountRepo: Repository<AddCurrencyEntity>,
+
+    private readonly redisService: RedisService,
   ) {}
 
   async createCurrencyAccount(
@@ -156,6 +159,13 @@ export class CurrencyAccountService {
     });
 
     await this.entryRepo.save(entry);
+    const redis = this.redisService.getClient();
+
+    await redis.del(`daily-book:${adminId}:${dto.date}`);
+
+    await redis.del(`ledger:${adminId}:${dto.accountId}`);
+
+    console.log('🧹 Redis cache invalidated after currency entry');
 
     return { entry, updatedBalance: account.balance };
   }
@@ -234,78 +244,100 @@ export class CurrencyAccountService {
   }
 
   async getDailyBook(filter: DailyBookDto, adminId: string) {
+    const cacheKey = `daily-book:${adminId}:${filter.date}`;
+
+    const cached = await this.redisService.getValue(cacheKey);
+    if (cached) {
+      console.log('✅ DailyBook cache HIT');
+      return cached;
+    }
+
+    console.log('❌ DailyBook cache MISS');
+
     const date = new Date(filter.date);
 
     const entries = await this.entryRepo.find({
-      where: { date: date, adminId: adminId },
+      where: { date, adminId },
       relations: ['account'],
       order: { created_at: 'DESC' },
     });
 
-    return entries.map((entry) => ({
+    const result = entries.map((entry) => ({
       accountName: entry.account?.name,
       narration: `${entry.account?.name} To ${entry.description ?? ''}`.trim(),
       debitAmount: entry.entryType === EntryType.BANAM ? entry.amount : 0,
       creditAmount: entry.entryType === EntryType.JAMAM ? entry.amount : 0,
     }));
+
+    await this.redisService.setValue(cacheKey, result, 300);
+    console.log('💾 DailyBook cache SET');
+
+    return result;
   }
 
   async getLedgers(adminId: string, accountId: string) {
-    try {
-      const account = await this.currencyRepo.findOne({
-        where: { id: accountId, adminId: adminId },
-      });
+    const cacheKey = `ledger:${adminId}:${accountId}`;
 
-      if (!account) {
-        throw new BadRequestException(
-          'No Account Found of This User in Your Profile',
-        );
-      }
-
-      const entries = await this.entryRepo.find({
-        where: { account: { id: accountId } },
-      });
-
-      if (!entries || entries.length === 0) {
-        throw new BadRequestException('There is no Entry of this User Account');
-      }
-
-      const Accountentries = entries.map((entry) => ({
-        entryDate: entry.date,
-        accountName: entry.account?.name,
-        paymentType: entry.paymentType,
-        narration:
-          `${entry.account?.name} To ${entry.description ?? ''}`.trim(),
-        debitAmount: entry.entryType === EntryType.BANAM ? entry.amount : 0,
-        creditAmount: entry.entryType === EntryType.JAMAM ? entry.amount : 0,
-        entryBalance: entry.balance,
-      }));
-
-      let totalCr = 0;
-      let totalDr = 0;
-
-      entries.forEach((entry) => {
-        if (entry.entryType === EntryType.JAMAM) {
-          totalCr += entry.amount;
-        } else {
-          totalDr += entry.amount;
-        }
-      });
-
-      const total = totalCr - totalDr; // Credit − Debit
-
-      return {
-        accountName: account.name,
-        entries: Accountentries,
-        totals: {
-          totalCr,
-          totalDr,
-          netBalance: total, // Credit - Debit
-        },
-      };
-    } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException('Something Went Wrong');
+    const cached = await this.redisService.getValue(cacheKey);
+    if (cached) {
+      console.log('✅ Ledger cache HIT');
+      return cached;
     }
+
+    console.log('❌ Ledger cache MISS');
+
+    const account = await this.currencyRepo.findOne({
+      where: { id: accountId, adminId },
+    });
+
+    if (!account) {
+      throw new BadRequestException(
+        'No Account Found of This User in Your Profile',
+      );
+    }
+
+    const entries = await this.entryRepo.find({
+      where: { account: { id: accountId } },
+    });
+
+    if (!entries || entries.length === 0) {
+      throw new BadRequestException('There is no Entry of this User Account');
+    }
+
+    const Accountentries = entries.map((entry) => ({
+      entryDate: entry.date,
+      accountName: entry.account?.name,
+      paymentType: entry.paymentType,
+      narration: `${entry.account?.name} To ${entry.description ?? ''}`.trim(),
+      debitAmount: entry.entryType === EntryType.BANAM ? entry.amount : 0,
+      creditAmount: entry.entryType === EntryType.JAMAM ? entry.amount : 0,
+      entryBalance: entry.balance,
+    }));
+
+    let totalCr = 0;
+    let totalDr = 0;
+
+    entries.forEach((entry) => {
+      if (entry.entryType === EntryType.JAMAM) {
+        totalCr += entry.amount;
+      } else {
+        totalDr += entry.amount;
+      }
+    });
+
+    const result = {
+      accountName: account.name,
+      entries: Accountentries,
+      totals: {
+        totalCr,
+        totalDr,
+        netBalance: totalCr - totalDr,
+      },
+    };
+
+    await this.redisService.setValue(cacheKey, result, 300);
+    console.log('💾 Ledger cache SET');
+
+    return result;
   }
 }

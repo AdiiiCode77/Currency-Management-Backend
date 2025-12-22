@@ -19,6 +19,7 @@ import { CreateAddCurrencyDto } from '../domain/dto/create-add-currency.dto';
 import { AddCurrencyEntity } from '../domain/entity/currency.entity';
 import { CreateCurrencyAccountDto } from '../domain/dto/create-currency-account.dto';
 import { CurrencyAccountEntity } from '../domain/entity/currency-account.entity';
+import { RedisService } from 'src/shared/modules/redis/redis.service';
 
 @Injectable()
 export default class AccountService {
@@ -39,6 +40,8 @@ export default class AccountService {
     private readonly currencyRepo: Repository<AddCurrencyEntity>,
     @InjectRepository(CurrencyAccountEntity)
     private readonly currencyAccountRepo: Repository<CurrencyAccountEntity>,
+
+    private readonly redisService: RedisService,
   ) {}
 
   async addUserAccount(dto: CreateCustomerAccountDto, adminId: string) {
@@ -46,7 +49,12 @@ export default class AccountService {
       ...dto,
       adminId,
     });
+    const redis = this.redisService.getClient();
+    
+      await redis.del(`customers_${adminId}*`);
     return await this.customerAccountRepository.save(newAccount);
+
+
   }
 
   async findAllUserAccount(adminId: string, paginationDto: PaginationDto) {

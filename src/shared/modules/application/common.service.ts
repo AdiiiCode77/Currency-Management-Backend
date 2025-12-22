@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { AddChqRefBankEntity} from 'src/modules/account/domain/entity/add-chq-ref-bank.entity';
+import { AddChqRefBankEntity } from 'src/modules/account/domain/entity/add-chq-ref-bank.entity';
 import { AddExpenseEntity } from 'src/modules/account/domain/entity/add-expense.entity';
 import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
 import { CurrencyAccountEntity } from 'src/modules/account/domain/entity/currency-account.entity';
@@ -40,10 +40,10 @@ export class CommonService {
     @InjectRepository(AddCurrencyEntity)
     private currency_user: Repository<AddCurrencyEntity>,
     @InjectRepository(CustomerCurrencyAccountEntity)
-    private currency_accounts: Repository<CustomerCurrencyAccountEntity>,  
+    private currency_accounts: Repository<CustomerCurrencyAccountEntity>,
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
   ) {
     this.repoMap = {
       customer: this.customerRepo,
@@ -53,76 +53,79 @@ export class CommonService {
       expense: this.expense,
       chqbank: this.chqbank,
       currency: this.currency,
-      currency_user: this.currency_user
+      currency_user: this.currency_user,
     };
   }
 
-async getAllCustomersForDropdown(adminId: string) {
-  const key = `customers_${adminId}`;
-  console.log('🔍 Checking cache for key:', key);
+  async getAllCustomersForDropdown(adminId: string) {
+    const key = `customers_${adminId}`;
 
-  const cached = await this.redisService.getValue<{ label: string; value: string }[]>(key);
+    const cached =
+      await this.redisService.getValue<{ label: string; value: string }[]>(key);
 
-  if (cached) {
-    console.log('✅ Cache HIT – returning cached customers');
-    return cached;
-  }
+    if (cached) {
+      console.log('✅ Cache HIT – returning cached customers');
+      return cached;
+    }
 
-  console.log('❌ Cache MISS – fetching from DB');
-  const customers = await this.customerRepo.find({
-    select: ['id', 'name'],
-    order: { name: 'ASC' },
-    where: { adminId },
-  });
-
-  const result = customers.map((c) => ({
-    label: c.name,
-    value: c.id,
-  }));
-
-  await this.redisService.setValue(key, result, 600); // cache for 10 minutes
-  console.log('💾 Cache SET for key:', key);
-
-  return result;
-}
-
-  
-async getAllCurrencyAccountsForDropdown(adminId: string, currency_id: string) {
-  const cacheKey = `currency_accounts_${adminId}_${currency_id}`;
-  console.log('🔍 Checking cache for key:', cacheKey);
-
-  // Check Redis first
-  const cached = await this.redisService.getValue<{ label: string; value: string }[]>(cacheKey);
-  if (cached) {
-    console.log('✅ Cache HIT – returning cached currency accounts');
-    return cached;
-  }
-
-  console.log('❌ Cache MISS – fetching from DB');
-  try {
-    const accounts = await this.currency_accounts.find({
+    console.log('❌ Cache MISS – fetching from DB');
+    const customers = await this.customerRepo.find({
       select: ['id', 'name'],
       order: { name: 'ASC' },
-      where: { adminId, currencyId: currency_id },
+      where: { adminId },
     });
 
-    const result = accounts.map((c) => ({
+    const result = customers.map((c) => ({
       label: c.name,
       value: c.id,
     }));
 
-    // Save to Redis with TTL (10 minutes)
-    await this.redisService.setValue(cacheKey, result, 600);
-    console.log('💾 Cache SET for key:', cacheKey);
+    await this.redisService.setValue(key, result, 300);
 
     return result;
-  } catch (error) {
-    throw new InternalServerErrorException(
-      'Failed to load currency accounts. Please try again later.',
-    );
   }
-}
 
+  async getAllCurrencyAccountsForDropdown(
+    adminId: string,
+    currency_id: string,
+  ) {
+    const cacheKey = `currency_accounts_${adminId}_${currency_id}`;
+    console.log('🔍 Checking cache for key:', cacheKey);
+
+    // Check Redis first
+    const cached =
+      await this.redisService.getValue<{ label: string; value: string }[]>(
+        cacheKey,
+      );
+    if (cached) {
+      console.log('✅ Cache HIT – returning cached currency accounts');
+      return cached;
+    }
+
+    console.log('❌ Cache MISS – fetching from DB');
+    try {
+      const accounts = await this.currency_accounts.find({
+        select: ['id', 'name'],
+        order: { name: 'ASC' },
+        where: { adminId, currencyId: currency_id },
+      });
+
+      const result = accounts.map((c) => ({
+        label: c.name,
+        value: c.id,
+      }));
+
+      // Save to Redis with TTL (10 minutes)
+      await this.redisService.setValue(cacheKey, result, 600);
+      console.log('💾 Cache SET for key:', cacheKey);
+
+      return result;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to load currency accounts. Please try again later.',
+      );
+    }
+  }
 
   async getAllBankForDropdown(adminId: string) {
     try {
@@ -143,83 +146,84 @@ async getAllCurrencyAccountsForDropdown(adminId: string, currency_id: string) {
     }
   }
 
-async getModuleById(module: string, id: string) {
-  const cacheKey = `module_${module}_${id}`;
-  console.log('🔍 Checking cache for key:', cacheKey);
+  async getModuleById(module: string, id: string) {
+    const cacheKey = `module_${module}_${id}`;
+    console.log('🔍 Checking cache for key:', cacheKey);
 
-  // Check Redis first
-  const cached = await this.redisService.getValue<any>(cacheKey);
-  if (cached) {
-    console.log('✅ Cache HIT – returning cached module record');
-    return cached;
-  }
+    // Check Redis first
+    const cached = await this.redisService.getValue<any>(cacheKey);
+    if (cached) {
+      console.log('✅ Cache HIT – returning cached module record');
+      return cached;
+    }
 
-  console.log('❌ Cache MISS – fetching from DB');
-  const repo = this.repoMap[module];
+    console.log('❌ Cache MISS – fetching from DB');
+    const repo = this.repoMap[module];
 
-  if (!repo) {
-    throw new BadRequestException('Invalid module name');
-  }
+    if (!repo) {
+      throw new BadRequestException('Invalid module name');
+    }
 
-  const record = await repo.findOne({ where: { id } });
+    const record = await repo.findOne({ where: { id } });
 
-  if (!record) {
-    throw new NotFoundException(
-      `Record not found for ${module} with id ${id}`,
-    );
-  }
-
-  // Save to Redis (TTL 10 minutes)
-  await this.redisService.setValue(cacheKey, record, 600);
-  console.log('💾 Cache SET for key:', cacheKey);
-
-  return record;
-}
-
-
-async getCurrencyofUser(adminId: string) {
-  const cacheKey = `currency_user_${adminId}`;
-  console.log('🔍 Checking cache for key:', cacheKey);
-
-  // Check Redis first
-  const cached = await this.redisService.getValue<{ label: string; value: string; code: string }[]>(cacheKey);
-  if (cached) {
-    console.log('✅ Cache HIT – returning cached currency data');
-    return cached;
-  }
-
-  console.log('❌ Cache MISS – fetching from DB');
-  try {
-    const currencies = await this.currency_user.find({
-      select: ['id', 'name', 'code'],
-      order: { name: 'ASC' },
-      where: { adminId },
-    });
-
-    const result = currencies.map((c) => ({
-      label: c.name,
-      value: c.id,
-      code: c.code,
-    }));
+    if (!record) {
+      throw new NotFoundException(
+        `Record not found for ${module} with id ${id}`,
+      );
+    }
 
     // Save to Redis (TTL 10 minutes)
-    await this.redisService.setValue(cacheKey, result, 600);
+    await this.redisService.setValue(cacheKey, record, 600);
     console.log('💾 Cache SET for key:', cacheKey);
 
-    return result;
-  } catch (error) {
-    throw new InternalServerErrorException(
-      'Failed to load currency data. Please try again later.',
-    );
+    return record;
   }
-}
 
+  async getCurrencyofUser(adminId: string) {
+    const cacheKey = `currency_user_${adminId}`;
+    console.log('🔍 Checking cache for key:', cacheKey);
 
-  async getRefBanks(adminId: string){
+    // Check Redis first
+    const cached =
+      await this.redisService.getValue<
+        { label: string; value: string; code: string }[]
+      >(cacheKey);
+    if (cached) {
+      console.log('✅ Cache HIT – returning cached currency data');
+      return cached;
+    }
+
+    console.log('❌ Cache MISS – fetching from DB');
+    try {
+      const currencies = await this.currency_user.find({
+        select: ['id', 'name', 'code'],
+        order: { name: 'ASC' },
+        where: { adminId },
+      });
+
+      const result = currencies.map((c) => ({
+        label: c.name,
+        value: c.id,
+        code: c.code,
+      }));
+
+      // Save to Redis (TTL 10 minutes)
+      await this.redisService.setValue(cacheKey, result, 600);
+      console.log('💾 Cache SET for key:', cacheKey);
+
+      return result;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to load currency data. Please try again later.',
+      );
+    }
+  }
+
+  async getRefBanks(adminId: string) {
     const refbanks = await this.chqbank.find({
-      where: {adminId: adminId},
-      order: {name : 'ASC'},
-      select: ['name', 'id']
+      where: { adminId: adminId },
+      order: { name: 'ASC' },
+      select: ['name', 'id'],
     });
 
     return refbanks.map((c) => ({
