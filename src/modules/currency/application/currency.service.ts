@@ -130,16 +130,13 @@ export class CurrencyAccountService {
     const admin = await this.userRepo.findOne({
       where: { id: AdminInfo },
     });
-    console.log('Admin here clddlldld', admin.id);
 
     if (!account) throw new NotFoundException('Customer account not found');
 
     if (dto.entryType === EntryType.JAMAM) {
-      // Credit (Money added)
       account.balance += dto.amount;
       admin.account_balance -= dto.amount;
     } else if (dto.entryType === EntryType.BANAM) {
-      // Debit (Money removed) — allow negative
       account.balance -= dto.amount;
       admin.account_balance += dto.amount;
     }
@@ -180,7 +177,6 @@ export class CurrencyAccountService {
 
     const results = [];
 
-    // Fetch admin actual ID
     const AdminInfo = await this.getGenericUserId(adminId);
 
     const admin = await this.userRepo.findOne({
@@ -189,14 +185,12 @@ export class CurrencyAccountService {
 
     if (!admin) throw new NotFoundException('Admin not found');
 
-    // Step 1: Preload all accounts involved
     const accountMap: Map<string, CustomerCurrencyAccountEntity> = new Map();
     const accountIds = [...new Set(dto.entries.map((e) => e.accountId))];
 
     const accounts = await this.currencyRepo.findByIds(accountIds);
     accounts.forEach((acc) => accountMap.set(acc.id, acc));
 
-    // Step 2: Process each entry
     for (const entryDto of dto.entries) {
       const account = accountMap.get(entryDto.accountId);
       if (!account) {
@@ -205,13 +199,10 @@ export class CurrencyAccountService {
         );
       }
 
-      // Update balances exactly like createCurrencyEntry()
       if (entryDto.entryType === EntryType.JAMAM) {
-        // Credit to customer → admin loses money
         account.balance += entryDto.amount;
         admin.account_balance -= entryDto.amount;
       } else if (entryDto.entryType === EntryType.BANAM) {
-        // Debit from customer → admin gains money
         account.balance -= entryDto.amount;
         admin.account_balance += entryDto.amount;
       }
@@ -239,6 +230,14 @@ export class CurrencyAccountService {
 
     // Step 5: Save updated admin balance once
     await this.userRepo.save(admin);
+
+     const redis = this.redisService.getClient();
+
+    await redis.del(`daily-book:${adminId}:*`);
+
+    await redis.del(`ledger:${adminId}:*`);
+
+    console.log('🧹 Redis cache invalidated after currency entry');
 
     return results;
   }
