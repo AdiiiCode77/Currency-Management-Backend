@@ -91,15 +91,20 @@ export class CurrencyAccountService {
     paginationDto: PaginationDto,
   ) {
     const { offset = 1, limit = 10 } = paginationDto;
-
+    console.log(
+      'Fetching customers for admin:',
+      adminId,
+      'currency:',
+      currency,
+    );
     const [data, total] = await this.currencyRepo.findAndCount({
-      where: { adminId, currencyId: currency },
+      where: { adminId: adminId, currencyId: currency },
       skip: (offset - 1) * limit,
       take: limit,
       order: { created_at: 'DESC' },
     });
-
     return buildPaginationResponse(data, total, offset, limit);
+
   }
 
   async updateCustomer(id: string, dto: UpdateCustomerCurrencyAccountDto) {
@@ -167,13 +172,17 @@ export class CurrencyAccountService {
 
     await redis.del(`ledger:${adminId}:${dto.accountId}`);
 
+    await redis.del(`currency-trial-balance:${adminId}:${account.currencyId}`);
+
     console.log('🧹 Redis cache invalidated after currency entry');
 
     return { entry, updatedBalance: account.balance };
   }
 
-  async createCurrencyJournalEntries(dto: CreateCurrencyJournalEntryDto, adminId: string) {
-
+  async createCurrencyJournalEntries(
+    dto: CreateCurrencyJournalEntryDto,
+    adminId: string,
+  ) {
     const admin = await this.adminRepo.findOne({ where: { id: adminId } });
     if (!admin) {
       throw new NotFoundException('Admin not found');
@@ -186,9 +195,9 @@ export class CurrencyAccountService {
     if (accounts.length !== 2) {
       throw new NotFoundException('One or both customer accounts not found');
     }
-    
-    const drAccount = accounts.find(acc => acc.id === dto.DraccountId);
-    const crAccount = accounts.find(acc => acc.id === dto.CraccountId);
+
+    const drAccount = accounts.find((acc) => acc.id === dto.DraccountId);
+    const crAccount = accounts.find((acc) => acc.id === dto.CraccountId);
     if (!drAccount || !crAccount) {
       throw new NotFoundException('One or both customer accounts not found');
     }
@@ -197,7 +206,7 @@ export class CurrencyAccountService {
     crAccount.balance -= dto.amount;
 
     await this.currencyRepo.save([drAccount, crAccount]);
-    
+
     const journalEntry = this.journalEntryRepo.create({
       date: dto.date,
       paymentType: dto.paymentType,
@@ -213,9 +222,16 @@ export class CurrencyAccountService {
     await redis.del(`daily-book:${adminId}:${dto.date}`);
     await redis.del(`ledger:${adminId}:${dto.DraccountId}`);
     await redis.del(`ledger:${adminId}:${dto.CraccountId}`);
+    await redis.del(
+      `currency-trial-balance:${adminId}:${drAccount.currencyId}`,
+    );
 
-    console.log('🧹 Redis cache invalidated after currency journal entry')
-    return { journalEntry, drAccountBalance: drAccount.balance, crAccountBalance: crAccount.balance };
+    console.log('🧹 Redis cache invalidated after currency journal entry');
+    return {
+      journalEntry,
+      drAccountBalance: drAccount.balance,
+      crAccountBalance: crAccount.balance,
+    };
   }
 
   async getDailyBook(filter: DailyBookDto, adminId: string) {
@@ -314,5 +330,54 @@ export class CurrencyAccountService {
     console.log('💾 Ledger cache SET');
 
     return result;
+  }
+
+  async currencyTrailBalance(adminId: string, currencyId: string) {
+    try {
+      const cacheKey = `currency-trial-balance:${adminId}:${currencyId}`;
+      const cached = await this.redisService.getValue(cacheKey);
+
+      if (cached) {
+        console.log('✅ Currency Trial Balance cache HIT');
+        return cached;
+      }
+
+      console.log('❌ Currency Trial Balance cache MISS');
+
+      const result = await this.entryRepo
+        .createQueryBuilder('entry')
+        .innerJoin('entry.account', 'account')
+        .where('account.adminId = :adminId', { adminId })
+        .andWhere('account.currencyId = :currencyId', { currencyId })
+        .select('account.name', 'accountName')
+        .addSelect(
+          `SUM(CASE WHEN entry.entryType = :cr THEN entry.amount ELSE 0 END)`,
+          'totalCr',
+        )
+        .addSelect(
+          `SUM(CASE WHEN entry.entryType != :cr THEN entry.amount ELSE 0 END)`,
+          'totalDr',
+        )
+        .setParameter('cr', EntryType.JAMAM)
+        .groupBy('account.id')
+        .having(`SUM(entry.amount) != 0`)
+        .getRawMany();
+
+      const trailBalance = result.map((row) => ({
+        accountName: row.accountName,
+        totalCr: Number(row.totalCr),
+        totalDr: Number(row.totalDr),
+        netBalance: Number(row.totalCr) - Number(row.totalDr),
+      }));
+
+      await this.redisService.setValue(cacheKey, trailBalance, 300);
+      console.log('💾 Currency Trial Balance cache SET');
+
+      return trailBalance;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Error fetching currency trial balance',
+      );
+    }
   }
 }

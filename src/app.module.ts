@@ -18,6 +18,7 @@ import { CurrencyModule } from './modules/currency/currency.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import * as redisStore from 'cache-manager-redis-store';
 import { RedisModule } from './shared/modules/redis/redis.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { RedisModule } from './shared/modules/redis/redis.module';
     JournalModule,
     DashboardModule,
     SalePurchaseModule,
+    ReportsModule,
     CurrencyModule,
 
     ConfigModule.forRoot({

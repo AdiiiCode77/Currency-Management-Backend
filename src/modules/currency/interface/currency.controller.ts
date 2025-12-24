@@ -95,11 +95,11 @@ export class CurrencyAccountController {
   getByAdmin(
     @Req() req: Request,
     @Query() paginationDto: PaginationDto,
-    @Param(':currencyId') cuurency: string,
+    @Param('currencyId') currency: string,
   ) {
     return this.service.getCustomersByAdmin(
       req.adminId,
-      cuurency,
+      currency,
       paginationDto,
     );
   }
@@ -138,5 +138,14 @@ export class CurrencyAccountController {
   })
   async getLedgers(@Req() req: Request, @Param('cid') cid: string) {
     return await this.service.getLedgers(req.adminId, cid);
+  }
+
+  @Get('trial-balance/:currencyId')
+  @ApiOperation({
+    summary:
+      'Get Currency Trial Balance for a specific currency',
+  })
+  async getCurrencyTrialBalance(@Req() req: Request, @Param('currencyId') currencyId: string) {
+    return await this.service.currencyTrailBalance(req.adminId, currencyId);
   }
 }
