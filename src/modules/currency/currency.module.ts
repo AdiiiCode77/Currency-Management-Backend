@@ -13,6 +13,7 @@ import { CustomerEntity } from '../users/domain/entities/customer.entity';
 import { CustomerCurrencyEntryEntity } from './domain/entities/currency-entry.entity';
 import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
 import { RedisService } from 'src/shared/modules/redis/redis.service';
+import { JournalCurrencyEntryEntity } from './domain/entities/create-currency-journal-entry';
 
 @Module({
   imports: [
@@ -24,7 +25,8 @@ import { RedisService } from 'src/shared/modules/redis/redis.service';
       AdminEntity,
       CustomerEntity,
       CustomerCurrencyEntryEntity,
-      AddCurrencyEntity
+      AddCurrencyEntity,
+      JournalCurrencyEntryEntity
     ]),
   ],
   controllers: [CurrencyAccountController],
