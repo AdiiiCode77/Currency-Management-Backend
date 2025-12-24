@@ -85,6 +85,46 @@ export class CommonService {
     return result;
   }
 
+  async getAllCustomersandBanksForDropdown(adminId: string) {
+    const key = `customers_banks_${adminId}`;
+
+    const cached =
+      await this.redisService.getValue<{ label: string; value: string }[]>(key);
+
+    if (cached) {
+      console.log('✅ Cache HIT – returning cached customers');
+      return cached;
+    }
+
+    console.log('❌ Cache MISS – fetching from DB');
+    const customers = await this.customerRepo.find({
+      select: ['id', 'name'],
+      order: { name: 'ASC' },
+      where: { adminId },
+    });
+
+    const banks = await this.bankRepo.find({
+      select: ['id', 'bankName'],
+      order: { bankName: 'ASC' },
+      where: { adminId },
+    });
+
+    const result = [
+      ...customers.map((c) => ({
+        label: c.name,
+        value: c.id,
+      })),
+      ...banks.map((b) => ({
+        label: b.bankName,
+        value: b.id,
+      })),
+    ];
+
+    await this.redisService.setValue(key, result, 300);
+
+    return result;
+  }
+
   async getAllCurrencyAccountsForDropdown(
     adminId: string,
     currency_id: string,

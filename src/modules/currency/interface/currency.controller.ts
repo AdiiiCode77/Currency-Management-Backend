@@ -26,6 +26,8 @@ import { UpdateCustomerCurrencyAccountDto } from '../domain/dto/update-currency-
 import { CreateCurrencyEntryDto } from '../domain/dto/create-currency-entry.dto';
 import { CreateMultipleCurrencyEntryDto } from '../domain/dto/multiple-currency-entry.dto';
 import { DailyBookDto } from '../domain/dto/daily-book.dto';
+import { CreateJournalEntryDto } from 'src/modules/journal/domain/dto/create-journal-entry.dto';
+import { CreateCurrencyJournalEntryDto } from '../domain/dto/create-currency-journal-entry.dto';
 
 @ApiTags('Currency Accounts')
 @ApiBearerAuth()
@@ -57,19 +59,15 @@ export class CurrencyAccountController {
     return this.service.createCurrencyEntry(dto, req.adminId);
   }
 
-  @Post('multipleEntry/add')
+  @Post('journal/entries')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, IsAdminGuard)
-  @ApiOperation({
-    summary: 'Add multiple currency entries at once (JAMAM/BANAM)',
-  })
-  @ApiBody({ type: CreateMultipleCurrencyEntryDto })
-  createMultipleEntries(
-    @Body() dto: CreateMultipleCurrencyEntryDto,
-    @Req() req: Request,
-  ) {
-    return this.service.createMultipleCurrencyEntries(dto, req.adminId);
+  @ApiOperation({ summary: 'Add currency journal entries (Dr/Cr)' })
+  @ApiBody({ type: CreateCurrencyJournalEntryDto })
+  createJournalEntries(@Body() dto: CreateCurrencyJournalEntryDto, @Req() req: Request) {
+    return this.service.createCurrencyJournalEntries(dto, req.adminId);
   }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get Customer Currency Account by ID' })
   getCustomer(@Param('id') id: string) {

@@ -23,6 +23,13 @@ export class CommonController {
     return await this.customerService.getAllBankForDropdown(req.adminId);
   }
 
+  @Get('userAndbanksdropdown')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+  async getAllbanksansUsersForDropdown(@Req() req: Request) {
+    return  await this.customerService.getAllCustomersandBanksForDropdown(req.adminId);
+  }
+
   @Get('currency/account/:cId')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, IsAdminGuard)

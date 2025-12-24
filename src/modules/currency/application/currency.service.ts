@@ -22,6 +22,8 @@ import { AdminEntity } from 'src/modules/users/domain/entities/admin.entity';
 import { UserEntity } from 'src/modules/users/domain/entities/user.entity';
 import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
 import { RedisService } from 'src/shared/modules/redis/redis.service';
+import { CreateCurrencyJournalEntryDto } from '../domain/dto/create-currency-journal-entry.dto';
+import { JournalCurrencyEntryEntity } from '../domain/entities/create-currency-journal-entry';
 
 @Injectable()
 export class CurrencyAccountService {
@@ -42,6 +44,9 @@ export class CurrencyAccountService {
     private currencyAccountRepo: Repository<AddCurrencyEntity>,
 
     private readonly redisService: RedisService,
+
+    @InjectRepository(JournalCurrencyEntryEntity)
+    private journalEntryRepo: Repository<JournalCurrencyEntryEntity>,
   ) {}
 
   async createCurrencyAccount(
@@ -167,79 +172,50 @@ export class CurrencyAccountService {
     return { entry, updatedBalance: account.balance };
   }
 
-  async createMultipleCurrencyEntries(
-    dto: CreateMultipleCurrencyEntryDto,
-    adminId: string,
-  ) {
-    if (!dto.entries || dto.entries.length === 0) {
-      throw new BadRequestException('No entries provided');
+  async createCurrencyJournalEntries(dto: CreateCurrencyJournalEntryDto, adminId: string) {
+
+    const admin = await this.adminRepo.findOne({ where: { id: adminId } });
+    if (!admin) {
+      throw new NotFoundException('Admin not found');
+    }
+    const accounts = await this.currencyRepo.findByIds([
+      dto.DraccountId,
+      dto.CraccountId,
+    ]);
+
+    if (accounts.length !== 2) {
+      throw new NotFoundException('One or both customer accounts not found');
+    }
+    
+    const drAccount = accounts.find(acc => acc.id === dto.DraccountId);
+    const crAccount = accounts.find(acc => acc.id === dto.CraccountId);
+    if (!drAccount || !crAccount) {
+      throw new NotFoundException('One or both customer accounts not found');
     }
 
-    const results = [];
+    drAccount.balance += dto.amount;
+    crAccount.balance -= dto.amount;
 
-    const AdminInfo = await this.getGenericUserId(adminId);
-
-    const admin = await this.userRepo.findOne({
-      where: { id: AdminInfo },
+    await this.currencyRepo.save([drAccount, crAccount]);
+    
+    const journalEntry = this.journalEntryRepo.create({
+      date: dto.date,
+      paymentType: dto.paymentType,
+      DrAccount: drAccount,
+      CrAccount: crAccount,
+      amount: dto.amount,
+      description: dto.description,
+      adminId: adminId,
     });
+    await this.journalEntryRepo.save(journalEntry);
+    const redis = this.redisService.getClient();
 
-    if (!admin) throw new NotFoundException('Admin not found');
+    await redis.del(`daily-book:${adminId}:${dto.date}`);
+    await redis.del(`ledger:${adminId}:${dto.DraccountId}`);
+    await redis.del(`ledger:${adminId}:${dto.CraccountId}`);
 
-    const accountMap: Map<string, CustomerCurrencyAccountEntity> = new Map();
-    const accountIds = [...new Set(dto.entries.map((e) => e.accountId))];
-
-    const accounts = await this.currencyRepo.findByIds(accountIds);
-    accounts.forEach((acc) => accountMap.set(acc.id, acc));
-
-    for (const entryDto of dto.entries) {
-      const account = accountMap.get(entryDto.accountId);
-      if (!account) {
-        throw new NotFoundException(
-          `Customer account not found: ${entryDto.accountId}`,
-        );
-      }
-
-      if (entryDto.entryType === EntryType.JAMAM) {
-        account.balance += entryDto.amount;
-        admin.account_balance -= entryDto.amount;
-      } else if (entryDto.entryType === EntryType.BANAM) {
-        account.balance -= entryDto.amount;
-        admin.account_balance += entryDto.amount;
-      }
-
-      // Create entry
-      const entry = this.entryRepo.create({
-        date: entryDto.date,
-        paymentType: entryDto.paymentType,
-        account,
-        amount: entryDto.amount,
-        description: entryDto.description,
-        entryType: entryDto.entryType,
-        adminId: adminId,
-        balance: account.balance,
-      });
-
-      results.push({ entry, updatedBalance: account.balance });
-    }
-
-    // Step 3: Save all entries
-    await this.entryRepo.save(results.map((r) => r.entry));
-
-    // Step 4: Save updated accounts
-    await this.currencyRepo.save(Array.from(accountMap.values()));
-
-    // Step 5: Save updated admin balance once
-    await this.userRepo.save(admin);
-
-     const redis = this.redisService.getClient();
-
-    await redis.del(`daily-book:${adminId}:*`);
-
-    await redis.del(`ledger:${adminId}:*`);
-
-    console.log('🧹 Redis cache invalidated after currency entry');
-
-    return results;
+    console.log('🧹 Redis cache invalidated after currency journal entry')
+    return { journalEntry, drAccountBalance: drAccount.balance, crAccountBalance: crAccount.balance };
   }
 
   async getDailyBook(filter: DailyBookDto, adminId: string) {
