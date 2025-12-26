@@ -174,6 +174,8 @@ export class CurrencyAccountService {
 
     await redis.del(`currency-trial-balance:${adminId}:${account.currencyId}`);
 
+    await redis.del(`dailyBooksReport:${adminId}:${dto.date}`);
+
     console.log('🧹 Redis cache invalidated after currency entry');
 
     return { entry, updatedBalance: account.balance };

@@ -312,6 +312,11 @@ export class SalePurchaseService {
 
       await manager.save(PurchaseEntryEntity, entry);
 
+      const redis = this.redisService.getClient();
+
+      await redis.del(`dailyBooksReport:${adminId}:${dto.date}`);
+
+      await redis.del(`dailyBuyingReport:${adminId}:${dto.date}`);
       return entry;
     });
   }
@@ -386,6 +391,9 @@ export class SalePurchaseService {
       // 6️⃣ Save entry
       await manager.save(SellingEntryEntity, entry);
 
+      const redis = this.redisService.getClient();
+
+      await redis.del(`dailyBooksReport:${adminId}:${dto.date}`);
       return entry;
     });
   }

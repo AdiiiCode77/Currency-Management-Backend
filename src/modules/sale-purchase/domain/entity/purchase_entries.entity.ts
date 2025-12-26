@@ -1,3 +1,4 @@
+import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
 import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
 import {
   Entity,
@@ -27,6 +28,10 @@ export class PurchaseEntryEntity {
   @Column({ name: 'currency_dr_id', type: 'uuid', nullable: false })
   currencyDrId: string;
 
+  @ManyToOne(() => AddCurrencyEntity, { eager: true })
+  @JoinColumn({ name: 'from_currency_id' })
+  fromCurrency: AddCurrencyEntity;
+
   @Column({ name: 'manual_ref', nullable: true })
   manualRef: string;
 
@@ -38,6 +43,7 @@ export class PurchaseEntryEntity {
   customerAccount: CustomerAccountEntity;
 
   @Column({
+    name: 'amountCurrency',
     type: 'decimal',
     precision: 30,
     scale: 2,

@@ -58,6 +58,7 @@ export class SellingEntryEntity {
   customerAccount: CustomerAccountEntity;
 
   @Column({
+    name: 'amountCurrency',
     type: 'decimal',
     precision: 30,
     scale: 2,
