@@ -15,6 +15,17 @@ import { UserTypeEntity } from '../users/domain/entities/user-type.entity';
 import { AdminEntity } from '../users/domain/entities/admin.entity';
 import { CustomerEntity } from '../users/domain/entities/customer.entity';
 import { CurrencyStockEntity } from '../currency/domain/entities/currency-stock.entity';
+import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
+import { JournalEntryEntity } from '../journal/domain/entity/journal-entry.entity';
+import { BankPaymentEntryEntity } from '../journal/domain/entity/bank-payment-entry.entity';
+import { BankReceiverEntryEntity } from '../journal/domain/entity/bank-receiver-entry.entity';
+import { CashPaymentEntryEntity } from '../journal/domain/entity/cash-payment-entry.entity';
+import { CashReceivedEntryEntity } from '../journal/domain/entity/cash-received-entry.entity';
+import { AccountBalanceEntity } from '../journal/domain/entity/account-balance.entity';
+import { AccountLedgerEntity } from '../journal/domain/entity/account-ledger.entity';
+import { CustomerAccountEntity } from '../account/domain/entity/customer-account.entity';
+import { BankAccountEntity } from '../account/domain/entity/bank-account.entity';
+import { GeneralAccountEntity } from '../account/domain/entity/general-account.entity';
 
 @Module({
   imports: [
@@ -28,6 +39,17 @@ import { CurrencyStockEntity } from '../currency/domain/entities/currency-stock.
       AdminEntity,
       CustomerEntity,
       CurrencyStockEntity,
+      AddCurrencyEntity,
+      JournalEntryEntity,
+      BankPaymentEntryEntity,
+      BankReceiverEntryEntity,
+      CashPaymentEntryEntity,
+      CashReceivedEntryEntity,
+      AccountBalanceEntity,
+      AccountLedgerEntity,
+      CustomerAccountEntity,
+      BankAccountEntity,
+      GeneralAccountEntity,
     ]),
   ],
   controllers: [ReportController],

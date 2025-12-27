@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JournalEntryEntity } from './domain/entity/journal-entry.entity';
 import { CustomerEntity } from '../users/domain/entities/customer.entity';
 import { JournalService } from './application/jounal.service';
+import { BalanceCalculationService } from './application/balance-calculation.service';
 import { JournalController } from './interface/journal.controller';
 import { JournalGetController } from './interface/journal-get.controller';
 import { CreateCashPaymentEntryDto } from './domain/dto/create-cash-payment-entry.dto';
@@ -14,6 +15,8 @@ import { CashPaymentEntryEntity } from './domain/entity/cash-payment-entry.entit
 import { CashReceivedEntryEntity } from './domain/entity/cash-received-entry.entity';
 import { BankPaymentEntryEntity } from './domain/entity/bank-payment-entry.entity';
 import { BankReceiverEntryEntity } from './domain/entity/bank-receiver-entry.entity';
+import { AccountBalanceEntity } from './domain/entity/account-balance.entity';
+import { AccountLedgerEntity } from './domain/entity/account-ledger.entity';
 import { CustomerAccountEntity } from '../account/domain/entity/customer-account.entity';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../users/application/user.service';
@@ -22,6 +25,10 @@ import { UserProfileEntity } from '../users/domain/entities/user-profiles.entity
 import { UserTypeEntity } from '../users/domain/entities/user-type.entity';
 import { AdminEntity } from '../users/domain/entities/admin.entity';
 import { BankAccountEntity } from '../account/domain/entity/bank-account.entity';
+import { GeneralAccountEntity } from '../account/domain/entity/general-account.entity';
+import { CurrencyStockEntity } from '../currency/domain/entities/currency-stock.entity';
+import { SellingEntryEntity } from '../sale-purchase/domain/entity/selling_entries.entity';
+import { PurchaseEntryEntity } from '../sale-purchase/domain/entity/purchase_entries.entity';
 
 @Module({
   imports: [
@@ -32,15 +39,22 @@ import { BankAccountEntity } from '../account/domain/entity/bank-account.entity'
       CashReceivedEntryEntity,
       BankPaymentEntryEntity,
       BankReceiverEntryEntity,
+      AccountBalanceEntity,
+      AccountLedgerEntity,
       CustomerAccountEntity,
       UserEntity,
       UserProfileEntity,
       UserTypeEntity,
       AdminEntity,
-      BankAccountEntity
+      BankAccountEntity,
+      GeneralAccountEntity,
+      CurrencyStockEntity,
+      SellingEntryEntity,
+      PurchaseEntryEntity,
     ]),
   ],
-  providers: [JournalService, JwtService, UserService],
+  providers: [JournalService, BalanceCalculationService, JwtService, UserService],
   controllers: [JournalController, JournalGetController],
+  exports: [BalanceCalculationService],
 })
 export class JournalModule {}
