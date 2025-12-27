@@ -14,6 +14,7 @@ import { UserProfileEntity } from '../users/domain/entities/user-profiles.entity
 import { UserTypeEntity } from '../users/domain/entities/user-type.entity';
 import { AdminEntity } from '../users/domain/entities/admin.entity';
 import { CustomerEntity } from '../users/domain/entities/customer.entity';
+import { CurrencyStockEntity } from '../currency/domain/entities/currency-stock.entity';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { CustomerEntity } from '../users/domain/entities/customer.entity';
       UserProfileEntity,
       UserTypeEntity,
       AdminEntity,
-      CustomerEntity
+      CustomerEntity,
+      CurrencyStockEntity,
     ]),
   ],
   controllers: [ReportController],

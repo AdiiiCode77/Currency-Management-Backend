@@ -6,6 +6,8 @@ import { PurchaseEntryEntity } from 'src/modules/sale-purchase/domain/entity/pur
 import { SellingEntryEntity } from 'src/modules/sale-purchase/domain/entity/selling_entries.entity';
 import { RedisService } from 'src/shared/modules/redis/redis.service';
 import { Between, Repository } from 'typeorm';
+import { CurrencyStockEntity } from 'src/modules/currency/domain/entities/currency-stock.entity';
+import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
 
 @Injectable()
 export class ReportService {
@@ -19,8 +21,54 @@ export class ReportService {
     @InjectRepository(CustomerCurrencyEntryEntity)
     private readonly currencyEntryRepository: Repository<CustomerCurrencyEntryEntity>,
 
+    @InjectRepository(CurrencyStockEntity)
+    private readonly currencyStockRepository: Repository<CurrencyStockEntity>,
+
     @Inject(RedisService) private readonly redisService: RedisService,
   ) {}
+
+  async currencyStocks(adminId: string): Promise<{
+    items: Array<{
+      name: string;
+      code: string;
+      amountPkr: number;
+      amountCurrency: number;
+      rate: number;
+    }>;
+    totals: { amountPkr: number; amountCurrency: number };
+  }> {
+    const rows = await this.currencyStockRepository
+      .createQueryBuilder('cs')
+      .innerJoin(AddCurrencyEntity, 'c', 'c.id = cs.currencyId')
+      .where('cs.adminId = :adminId', { adminId })
+      .andWhere('cs.currencyAmount > 0')
+      .select('c.name', 'name')
+      .addSelect('c.code', 'code')
+      .addSelect('cs.stockAmountPkr', 'amountPkr')
+      .addSelect('cs.currencyAmount', 'amountCurrency')
+      .addSelect('cs.rate', 'rate')
+      .orderBy('c.name', 'ASC')
+      .getRawMany();
+
+    const items = rows.map((r) => ({
+      name: r.name,
+      code: r.code,
+      amountPkr: Number(r.amountPkr) || 0,
+      amountCurrency: Number(r.amountCurrency) || 0,
+      rate: Number(r.rate) || 0,
+    }));
+
+    const totals = items.reduce(
+      (acc, cur) => {
+        acc.amountPkr += cur.amountPkr;
+        acc.amountCurrency += cur.amountCurrency;
+        return acc;
+      },
+      { amountPkr: 0, amountCurrency: 0 },
+    );
+
+    return { items, totals };
+  }
 
   async dailyBooksReport(adminId: string, date: string): Promise<any> {
     const cacheKey = `dailyBooksReport:${adminId}:${date}`;
@@ -316,11 +364,4 @@ export class ReportService {
     return response;
   }
 
-  async servicetoDeleteCache(): Promise<void> {
-    const redisService = this.redisService.getClient();
-    await redisService.del('dailyBooksReport:*');
-    await redisService.del('dailyBuyingReport:*');
-    await redisService.del('dailySellingReport:*');
-    await redisService.del('ledgersCurrencyReport:*');
-  }
 }

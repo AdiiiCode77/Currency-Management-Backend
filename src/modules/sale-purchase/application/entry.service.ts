@@ -19,6 +19,7 @@ import { CurrencyRelationEntity } from '../domain/entity/currencyRelation.entity
 import { CurrencyPnlPreviewDto } from '../domain/dto/CurrencyPnlPreview.dto';
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 import { RedisService } from 'src/shared/modules/redis/redis.service';
+import { CurrencyStockEntity } from 'src/modules/currency/domain/entities/currency-stock.entity';
 
 @Injectable()
 export class SalePurchaseService {
@@ -52,6 +53,55 @@ export class SalePurchaseService {
 
     private readonly redisService: RedisService,
   ) {}
+
+  private async updateCurrencyStock(
+    manager: EntityManager,
+    adminId: string,
+    currencyId: string,
+  ) {
+    const balances = await manager
+      .createQueryBuilder(CurrencyRelationEntity, 'cr')
+      .select('SUM(cr.balance)', 'totalCurrency')
+      .addSelect('SUM(cr.balancePkr)', 'totalPkr')
+      .where('cr.currencyId = :currencyId', { currencyId })
+      .andWhere('cr.adminId = :adminId', { adminId })
+      .getRawOne();
+
+    const totalCurrency = +balances?.totalCurrency || 0;
+    const totalPkr = +balances?.totalPkr || 0;
+
+    const avgRateResult = await manager
+      .createQueryBuilder(SellingEntryEntity, 's')
+      .select('AVG(s.rate)', 'avgRate')
+      .where('s.adminId = :adminId', { adminId })
+      .andWhere('s.fromCurrencyId = :currencyId', { currencyId })
+      .getRawOne();
+
+    const rate = +avgRateResult?.avgRate || 0;
+
+    const existing = await manager.findOne(CurrencyStockEntity, {
+      where: { adminId, currencyId },
+    });
+
+    if (existing) {
+      await manager.update(CurrencyStockEntity, { id: existing.id }, {
+        stockAmountPkr: totalPkr,
+        currencyAmount: totalCurrency,
+        rate,
+      });
+    } else {
+      const entity = manager.create(CurrencyStockEntity, {
+        adminId,
+        currencyId,
+        stockAmountPkr: totalPkr,
+        currencyAmount: totalCurrency,
+        rate,
+      });
+      await manager.save(entity);
+    }
+
+    return { totalPkr, totalCurrency, rate };
+  }
 
   async getCurrencyPnlPreview(adminId: string, dto: CurrencyPnlPreviewDto) {
     const { currencyId, amountCurrency, sellingRate } = dto;
@@ -312,6 +362,8 @@ export class SalePurchaseService {
 
       await manager.save(PurchaseEntryEntity, entry);
 
+      await this.updateCurrencyStock(manager, adminId, currency.id);
+
       const redis = this.redisService.getClient();
 
       await redis.del(`dailyBooksReport:${adminId}:${dto.date}`);
@@ -390,6 +442,8 @@ export class SalePurchaseService {
 
       // 6️⃣ Save entry
       await manager.save(SellingEntryEntity, entry);
+
+      await this.updateCurrencyStock(manager, adminId, currency.id);
 
       const redis = this.redisService.getClient();
 

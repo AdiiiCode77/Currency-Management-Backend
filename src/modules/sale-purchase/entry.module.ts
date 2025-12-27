@@ -18,6 +18,7 @@ import { CustomerEntity } from '../users/domain/entities/customer.entity';
 import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
 import { CurrencyRelationEntity } from './domain/entity/currencyRelation.entity';
 import { RedisService } from 'src/shared/modules/redis/redis.service';
+import { CurrencyStockEntity } from 'src/modules/currency/domain/entities/currency-stock.entity';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { RedisService } from 'src/shared/modules/redis/redis.service';
       CustomerEntity,
       AddCurrencyEntity,
       CurrencyRelationEntity,
+      CurrencyStockEntity,
     ]),
   ],
   controllers: [SalePurchaseController],

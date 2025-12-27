@@ -2,9 +2,10 @@
 import { Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ReportService } from '../application/report.service';
 import { Request } from 'express';
-import { ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/shared/guards/jwt.guard';
 import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
+@ApiTags('reports')
 @Controller('reports')
 export class ReportController {
   constructor(private readonly reportService: ReportService) {}
@@ -39,15 +40,40 @@ export class ReportController {
       );
     }
 
-    @Post('clear-cache')
+    @Get('currency-stocks')
     @ApiBearerAuth()
     @UseGuards(JwtAuthGuard, IsAdminGuard)
-    @ApiOperation({ summary: 'Clear Reports Cache' })
-    async clearReportsCache(
-      @Req() req: Request,
-    ): Promise<{ message: string }> {
-      await this.reportService.servicetoDeleteCache();
-      return { message: 'Reports cache cleared successfully' };
+    @ApiOperation({ summary: 'Get Currency Stocks for Admin' })
+    @ApiOkResponse({
+      description: 'Per-currency stock with totals',
+      schema: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                code: { type: 'string' },
+                amountPkr: { type: 'number', format: 'float' },
+                amountCurrency: { type: 'number', format: 'float' },
+                rate: { type: 'number', format: 'float' },
+              },
+            },
+          },
+          totals: {
+            type: 'object',
+            properties: {
+              amountPkr: { type: 'number', format: 'float' },
+              amountCurrency: { type: 'number', format: 'float' },
+            },
+          },
+        },
+      },
+    })
+    async getCurrencyStocks(@Req() req: Request): Promise<any> {
+      return this.reportService.currencyStocks(req.adminId);
     }
 
 }
