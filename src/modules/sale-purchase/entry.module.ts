@@ -19,6 +19,8 @@ import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
 import { CurrencyRelationEntity } from './domain/entity/currencyRelation.entity';
 import { RedisService } from 'src/shared/modules/redis/redis.service';
 import { CurrencyStockEntity } from 'src/modules/currency/domain/entities/currency-stock.entity';
+import { BankAccountEntity } from '../account/domain/entity/bank-account.entity';
+import { CustomerCurrencyAccountEntity } from '../currency/domain/entities/currencies-account.entity';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { CurrencyStockEntity } from 'src/modules/currency/domain/entities/curren
       AddCurrencyEntity,
       CurrencyRelationEntity,
       CurrencyStockEntity,
+      BankAccountEntity,
+      CustomerCurrencyAccountEntity
     ]),
   ],
   controllers: [SalePurchaseController],
