@@ -22,6 +22,8 @@ import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 import { RedisService } from 'src/shared/modules/redis/redis.service';
 import { CurrencyStockEntity } from 'src/modules/currency/domain/entities/currency-stock.entity';
 import { CustomerCurrencyAccountEntity } from 'src/modules/currency/domain/entities/currencies-account.entity';
+import { AccountBalanceEntity } from 'src/modules/journal/domain/entity/account-balance.entity';
+import { AccountLedgerEntity } from 'src/modules/journal/domain/entity/account-ledger.entity';
 
 @Injectable()
 export class SalePurchaseService {
@@ -56,6 +58,12 @@ export class SalePurchaseService {
 
     @InjectRepository(CurrencyRelationEntity)
     private readonly currency_relation: Repository<CurrencyRelationEntity>,
+
+    @InjectRepository(AccountBalanceEntity)
+    private readonly accountBalanceRepo: Repository<AccountBalanceEntity>,
+
+    @InjectRepository(AccountLedgerEntity)
+    private readonly accountLedgerRepo: Repository<AccountLedgerEntity>,
 
     private readonly dataSource: DataSource,
 
@@ -348,6 +356,103 @@ export class SalePurchaseService {
     }
   }
 
+  /**
+   * Update account balance for customer, bank, or currency accounts
+   * Recalculates totals from purchases and sales
+   * @param accountId - The account ID to update
+   * @param adminId - Admin ID for filtering
+   * @param accountType - Type of account (customer, bank, currency)
+   */
+  private async updateAccountBalance(
+    accountId: string,
+    adminId: string,
+    accountType: 'customer' | 'bank' | 'currency',
+  ): Promise<void> {
+    try {
+      let totalDebit = 0;
+      let totalCredit = 0;
+      let accountName = '';
+      let accountMetadata = '';
+
+      if (accountType === 'customer') {
+        const account = await this.customerRepo.findOne({
+          where: { id: accountId, adminId },
+        });
+        if (!account) return;
+
+        accountName = account.name;
+        accountMetadata = account.contact || '';
+
+        // Get purchases (debit - money paid to supplier/customer)
+        const purchases = await this.purchaseRepo
+          .createQueryBuilder('p')
+          .where('p.customerAccountId = :accountId', { accountId })
+          .andWhere('p.adminId = :adminId', { adminId })
+          .select('SUM(p.amountPkr)', 'total')
+          .getRawOne();
+        totalCredit += Number(purchases?.total || 0);
+
+        // Get sales (credit - money received from customer)
+        const sales = await this.sellingRepo
+          .createQueryBuilder('s')
+          .where('s.customerAccountId = :accountId', { accountId })
+          .andWhere('s.adminId = :adminId', { adminId })
+          .select('SUM(s.amountPkr)', 'total')
+          .getRawOne();
+        totalDebit += Number(sales?.total || 0);
+      } else if (accountType === 'bank') {
+        const account = await this.bankRepo.findOne({
+          where: { id: accountId, adminId },
+        });
+        if (!account) return;
+
+        accountName = account.bankName;
+        accountMetadata = account.accountNumber || '';
+
+        // Similar calculation for bank accounts if needed
+        // Add logic here based on your requirements
+      } else if (accountType === 'currency') {
+        const account = await this.currencyAccountRepo.findOne({
+          where: { id: accountId, adminId },
+          relations: ['currency'],
+        });
+        if (!account) return;
+
+        accountName = account.name;
+        accountMetadata = account.currency?.code || '';
+
+        // Similar calculation for currency accounts if needed
+        // Add logic here based on your requirements
+      }
+
+      const balance = totalCredit - totalDebit;
+
+      // Update or create balance record
+      await this.accountBalanceRepo.upsert(
+        {
+          adminId,
+          accountId: accountId,
+          accountType: accountType.toUpperCase() as 'CUSTOMER' | 'BANK' | 'CURRENCY',
+          accountName,
+          accountMetadata,
+          totalDebit,
+          totalCredit,
+          balance: Math.abs(balance),
+          balanceType: balance >= 0 ? 'CREDIT' : 'DEBIT',
+          lastEntryDate: new Date(),
+        },
+        ['adminId', 'accountId', 'accountType'],
+      );
+
+      console.log(
+        `✅ Updated ${accountType} account balance for ${accountName}`,
+      );
+    } catch (error) {
+      console.error(`Error updating ${accountType} account balance:`, error);
+      // Don't throw - balance update is supplementary
+    }
+  }
+
   async createPurchase(dto: CreatePurchaseDto, adminId: string) {
     return await this.dataSource.transaction(async (manager) => {
       const adminData = await this.adminRepo
@@ -434,6 +539,16 @@ export class SalePurchaseService {
       await redis.del(`dailyBooksReport:${adminId}:${dto.date}`);
 
       await redis.del(`dailyBuyingReport:${adminId}:${dto.date}`);
+
+      // Update account balance for the customer/bank/currency account
+      if (accountValidation.type) {
+        await this.updateAccountBalance(
+          dto.customerAccountId,
+          adminId,
+          accountValidation.type,
+        );
+      }
+
       return entry;
     });
   }
@@ -525,6 +640,16 @@ export class SalePurchaseService {
       const redis = this.redisService.getClient();
 
       await redis.del(`dailyBooksReport:${adminId}:${dto.date}`);
+
+      // Update account balance for the customer/bank/currency account
+      if (accountValidation.type) {
+        await this.updateAccountBalance(
+          dto.customerAccountId,
+          adminId,
+          accountValidation.type,
+        );
+      }
+
       return entry;
     });
   }
