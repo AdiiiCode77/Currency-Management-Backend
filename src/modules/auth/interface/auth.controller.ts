@@ -52,70 +52,56 @@ export class AuthController {
     status: 500,
     description: 'Any Server Error',
   })
-  async checkPhone( @Param('phone') phone: string) {
-    try {
-      return this.authService.checkPhoneExistence(phone);
-    } catch (error) {
-      throw error;
-    }
+  async checkPhone(@Param('phone') phone: string) {
+    return this.authService.checkPhoneExistence(phone);
   }
 
-@Post('/signup/first-step')
-@ApiOperation({
-  summary: 'Signup Step 1: Collect user info and send OTP',
-  description: 'Validates user data, sends OTP to email.',
-})
-@ApiBody({
-  description: 'User signup initial data',
-  schema: {
-    example: {
-      email: 'test@example.com',
+  @Post('/signup/first-step')
+  @ApiOperation({
+    summary: 'Signup Step 1: Collect user info and send OTP',
+    description: 'Validates user data, sends OTP to email.',
+  })
+  @ApiBody({
+    description: 'User signup initial data',
+    schema: {
+      example: {
+        email: 'test@example.com',
+      },
     },
-  },
-})
-@ApiResponse({ status: 200, description: 'OTP sent successfully' })
-@ApiResponse({ status: 400, description: 'Validation failed' })
-@ApiResponse({ status: 409, description: 'User already exists' })
-async signupFirstStep(
-  @Body() body: ISignupFirstStep,
-) {
-  try {
+  })
+  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 409, description: 'User already exists' })
+  async signupFirstStep(@Body() body: ISignupFirstStep) {
     return await this.authService.signupUserAndSendOtp({
       email: body.email.toLowerCase(),
     });
-  } catch (error) {
-    throw error;
   }
-}
 
-@Post('/signup/final-step')
-@ApiOperation({
-  summary: 'Signup Step 2: Verify OTP and create user',
-  description: 'Verifies OTP and creates user with full submitted data.',
-})
-@ApiBody({
-  description: 'Verify OTP and provide all required data',
-  schema: {
-    example: {
-      sentOtp: '123456',
-      email: 'test@example.com',
-      phone: '+923001234567',
-      password: 'StrongPassword123!',
-      name: 'John Doe',
-      user_type_id: '29cc763a-d7e5-4ab3-ad9e-92a81ff8b50a',
+  @Post('/signup/final-step')
+  @ApiOperation({
+    summary: 'Signup Step 2: Verify OTP and create user',
+    description: 'Verifies OTP and creates user with full submitted data.',
+  })
+  @ApiBody({
+    description: 'Verify OTP and provide all required data',
+    schema: {
+      example: {
+        sentOtp: '123456',
+        email: 'test@example.com',
+        phone: '+923001234567',
+        password: 'StrongPassword123!',
+        name: 'John Doe',
+        user_type_id: '29cc763a-d7e5-4ab3-ad9e-92a81ff8b50a',
+      },
     },
-  },
-})
-@ApiResponse({ status: 201, description: 'User created successfully' })
-@ApiResponse({ status: 400, description: 'Invalid OTP or missing data' })
-@ApiResponse({ status: 404, description: 'OTP not found or invalid' })
-async signupFinalStep(@Body() body: ISignupSecondStep) {
-  try {
+  })
+  @ApiResponse({ status: 201, description: 'User created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid OTP or missing data' })
+  @ApiResponse({ status: 404, description: 'OTP not found or invalid' })
+  async signupFinalStep(@Body() body: ISignupSecondStep) {
     return await this.authService.verifyOtpAndCreateUser(body);
-  } catch (error) {
-    throw error;
   }
-}
 
   @Post('/login/admin/email')
   @ApiOperation({
@@ -167,13 +153,9 @@ async signupFinalStep(@Body() body: ISignupSecondStep) {
     @Req() request: Request,
     @Body() body: AdminLoginDto,
   ) {
-    try {
-      return this.authService.loginAdminWithEmail({
-        email: body.email.toLowerCase(),
-        password: body.password,
-      });
-    } catch (error) {
-      throw error;
-    }
+    return this.authService.loginAdminWithEmail({
+      email: body.email.toLowerCase(),
+      password: body.password,
+    });
   }
 }

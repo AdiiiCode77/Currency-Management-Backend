@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { GlobalSanitizerPipe } from './shared/pipes/global-sanitizer.pipe';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { LoggerService } from './modules/logger/logger.service';
+import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 import express from 'express';
 
 async function bootstrap() {
@@ -13,8 +14,18 @@ async function bootstrap() {
     logger: loggerService.logger,
   });
 
+  // Global exception filter for consistent error handling
+  app.useGlobalFilters(new HttpExceptionFilter());
+
   app.useGlobalPipes(
-    new ValidationPipe({ transform: true }),
+    new ValidationPipe({ 
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
     new GlobalSanitizerPipe(),
   );
   app.enableCors();

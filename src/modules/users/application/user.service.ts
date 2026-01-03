@@ -56,7 +56,7 @@ export class UserService {
 
         if (emailExists) {
           throw new ConflictException([
-            'Another user already exists with this email',
+            'This email address is already in use. Please use a different email.',
           ]);
         }
       }
@@ -71,7 +71,7 @@ export class UserService {
 
         if (phoneExists) {
           throw new ConflictException([
-            'Another user already exists with this phone number',
+            'This phone number is already registered. Please use a different number.',
           ]);
         }
       }
@@ -108,7 +108,7 @@ export class UserService {
 
     const match = await bcrypt.compare(body.previous_password, user.password);
     if (!match) {
-      throw new ForbiddenException(['Previous password is incorrect']);
+      throw new ForbiddenException(['The current password you entered is incorrect. Please try again.']);
     }
 
     const hashedPassword = await bcrypt.hash(body.new_password, 10);
@@ -133,7 +133,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException(['User doesnot exists with this id']);
+      throw new NotFoundException(['The specified user could not be found.']);
     }
 
     return { user };
@@ -166,7 +166,7 @@ export class UserService {
 
     if (!userType) {
       throw new NotFoundException([
-        'No such user Type/Role Found in our system : ' + name,
+        'The specified user role/type could not be found in the system. Please contact support.',
       ]);
     }
 
@@ -183,7 +183,7 @@ export class UserService {
 
     if (!admin) {
       throw new NotFoundException([
-        'Admin does not exist with this profile id',
+        'Administrator profile not found. Please verify the profile ID.',
       ]);
     }
 
@@ -211,7 +211,7 @@ export class UserService {
 
     if (!customer) {
       throw new NotFoundException([
-        'Customer doesnot exists with this profile id',
+        'Customer profile not found. Please verify the profile ID.',
       ]);
     }
 
@@ -223,7 +223,7 @@ export class UserService {
     });
 
     if (!findUser) {
-      throw new NotFoundException(`User with ID ${userId} not found`);
+      throw new NotFoundException('The specified user could not be found.');
     }
 
     return findUser.block_status;

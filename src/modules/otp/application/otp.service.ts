@@ -24,7 +24,7 @@ export class OtpService {
 
   private async findUserByEmailOrPhone(email?: string, phone?: string) {
     if (!email && !phone) {
-      throw new BadRequestException(['Either email or phone is required']);
+      throw new BadRequestException(['Please provide either an email address or phone number to proceed.']);
     }
 
     let user: UserEntity | null = null;
@@ -41,7 +41,7 @@ export class OtpService {
 
     if (!user) {
       throw new BadRequestException([
-        `User with this ${email ? 'email' : 'phone'} does not exist`,
+        'Unable to send verification code. Please check your information and try again.',
       ]);
     }
 
@@ -78,7 +78,7 @@ export class OtpService {
     });
 
     if (!otp || otp.code !== body.otp) {
-      throw new BadRequestException(['OTP is invalid']);
+      throw new BadRequestException(['The verification code is invalid or has expired. Please request a new code.']);
     }
 
     await this.otpRepository.delete({ userId: user.id });
@@ -95,7 +95,7 @@ export class OtpService {
     });
 
     if (!user) {
-      throw new BadRequestException(['User with this id does not exist']);
+      throw new BadRequestException(['Unable to reset password. Please try the password reset process again.']);
     }
 
     user.password = await bcrypt.hash(body.password, 10);

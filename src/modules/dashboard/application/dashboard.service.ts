@@ -76,8 +76,7 @@ export class DashboardService {
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw new InternalServerErrorException(
-        error.message ||
-          'Something went wrong while creating cheque inward entry.',
+        'Unable to create cheque inward entry. Please try again later.',
       );
     } finally {
       await queryRunner.release();
@@ -162,8 +161,7 @@ export class DashboardService {
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw new InternalServerErrorException(
-        error.message ||
-          'Something went wrong while processing cheque inward batch.',
+        'Unable to process cheque inward batch. Please try again later.',
       );
     } finally {
       await queryRunner.release();
@@ -208,7 +206,9 @@ export class DashboardService {
         data: saved,
       };
     } catch (error) {
-      throw new InternalServerErrorException(error.message);
+      throw new InternalServerErrorException(
+        'Unable to create cheque outward entry. Please try again later.',
+      );
     }
   }
 
@@ -217,7 +217,7 @@ export class DashboardService {
     adminId: string,
   ) {
     if (!dtoArray?.length) {
-      throw new BadRequestException('Empty payload. No entries to process.');
+      throw new BadRequestException('No entries provided. Please provide at least one entry to process.');
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -290,7 +290,9 @@ export class DashboardService {
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      throw new InternalServerErrorException(error.message);
+      throw new InternalServerErrorException(
+        'Unable to process cheque outward batch. Please try again later.',
+      );
     } finally {
       await queryRunner.release();
     }
@@ -310,7 +312,9 @@ export class DashboardService {
         data,
       };
     } catch (error) {
-      throw new InternalServerErrorException(error.message);
+      throw new InternalServerErrorException(
+        'Unable to fetch cheque outward entries. Please try again later.',
+      );
     }
   }
 
@@ -329,7 +333,7 @@ export class DashboardService {
       };
     } catch (error) {
       throw new InternalServerErrorException(
-        error.message || 'Failed to fetch cheque inward entries.',
+        'Unable to fetch cheque inward entries. Please try again later.',
       );
     }
   }

@@ -378,7 +378,7 @@ export class CurrencyAccountService {
       return trailBalance;
     } catch (error) {
       throw new InternalServerErrorException(
-        'Error fetching currency trial balance',
+        'Unable to fetch currency trial balance. Please try again later.',
       );
     }
   }

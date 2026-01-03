@@ -69,7 +69,7 @@ export class AuthService {
     });
 
     if (existingUserEmail) {
-      throw new ConflictException(['User already exists with this email']);
+      throw new ConflictException(['An account with this email already exists. Please use a different email or try logging in.']);
     }
 
     if (!email) {
@@ -113,40 +113,40 @@ export class AuthService {
 
       if (!savedOtp) {
         throw new NotFoundException([
-          'No OTP found for this email. Please request a new one.',
+          'OTP has expired or not found. Please request a new verification code.',
         ]);
       }
 
       if (savedOtp.code !== body.sentOtp) {
-        throw new BadRequestException(['Incorrect OTP']);
+        throw new BadRequestException(['The verification code you entered is incorrect. Please check and try again.']);
       }
 
       const userType = await queryRunner.manager
         .getRepository(UserTypeEntity)
         .findOneBy({ id: body.user_type_id });
       if (!userType) {
-        throw new NotFoundException(['User Type/Role not found']);
+        throw new NotFoundException(['Invalid user role. Please contact support for assistance.']);
       }
       const existingUser = await this.userRepository.findOne({
         where: { email },
       });
 
       if (existingUser) {
-        throw new ConflictException(['User already exists with this email']);
+        throw new ConflictException(['An account with this email already exists. Please try logging in instead.']);
       }
 
       const existingphone = await this.userRepository.findOne({
         where: { phone: body.phone },
       })
       
-      if(existingphone){
-        throw new ConflictException(['User already exists with this phone number']);
+      if (existingphone) {
+        throw new ConflictException(['This phone number is already registered. Please use a different number or try logging in.']);
       }
       const tempData = await this.otpSignupEntity.findOneBy({ email });
 
       if (!tempData) {
         throw new NotFoundException([
-          'Signup data not found. Please restart process.',
+          'Your signup session has expired. Please start the registration process again.',
         ]);
       }
 
@@ -225,11 +225,9 @@ export class AuthService {
         throw err;
       }
 
-      throw new InternalServerErrorException({
-        message: [err?.message || 'Something went wrong'],
-        error: 'Internal Server Error',
-        code: 500,
-      });
+      throw new InternalServerErrorException(
+        'Unable to complete signup. Please try again later or contact support if the issue persists.',
+      );
     } finally {
       await queryRunner.release();
     }
@@ -246,12 +244,12 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new NotFoundException(['User with this email doesnt exists']);
+      throw new BadRequestException(['Invalid email or password. Please check your credentials and try again.']);
     }
 
     const isMatch = await bcrypt.compare(body.password, user.password);
     if (!isMatch) {
-      throw new BadRequestException(['Password not match']);
+      throw new BadRequestException(['Invalid email or password. Please check your credentials and try again.']);
     }
 
     // Check if user has admin, staff, or vendor profile
@@ -266,7 +264,7 @@ export class AuthService {
 
     if (adminProfiles.length === 0) {
       throw new ForbiddenException([
-        'This account does not have admin privileges',
+        'Access denied. This account does not have administrative privileges.',
       ]);
     }
     const mainTablesData: ({ data: AdminEntity } & { key: string })[] = [];

@@ -201,14 +201,14 @@ export class CommonService {
     const repo = this.repoMap[module];
 
     if (!repo) {
-      throw new BadRequestException('Invalid module name');
+      throw new BadRequestException('The requested module type is invalid. Please contact support.');
     }
 
     const record = await repo.findOne({ where: { id } });
 
     if (!record) {
       throw new NotFoundException(
-        `Record not found for ${module} with id ${id}`,
+        'The requested record could not be found. Please verify the ID and try again.',
       );
     }
 
@@ -270,5 +270,164 @@ export class CommonService {
       label: c.name,
       value: c.id,
     }));
+  }
+
+  async getAllAccountsForDropdown(
+    adminId: string,
+  ): Promise<
+    Array<{
+      label: string;
+      value: string;
+      type: 'customer' | 'bank' | 'currency';
+    }>
+  > {
+    // Validate adminId
+    if (!adminId || typeof adminId !== 'string') {
+      throw new BadRequestException(
+        'Invalid admin ID provided. Please ensure you have proper authorization.',
+      );
+    }
+
+    const cacheKey = `all_accounts_${adminId}`;
+    console.log('🔍 Checking cache for unified accounts:', cacheKey);
+
+    try {
+      const cached = await this.redisService.getValue<
+        Array<{
+          label: string;
+          value: string;
+          type: 'customer' | 'bank' | 'currency';
+        }>
+      >(cacheKey);
+
+      if (cached && Array.isArray(cached) && cached.length > 0) {
+        console.log(
+          `✅ Cache HIT – returning ${cached.length} cached accounts`,
+        );
+        return cached;
+      }
+
+      console.log('❌ Cache MISS – fetching from database');
+
+      // Fetch all three account types in parallel
+      const [customers, banks, currencyAccounts] = await Promise.all([
+        this.fetchCustomerAccounts(adminId),
+        this.fetchBankAccounts(adminId),
+        this.fetchCurrencyAccounts(adminId),
+      ]);
+
+      // Combine results with type information
+      const result = [
+        ...customers.map((c) => ({
+          label: c.name,
+          value: c.id,
+          type: 'customer' as const,
+        })),
+        ...banks.map((b) => ({
+          label: b.bankName,
+          value: b.id,
+          type: 'bank' as const,
+        })),
+        ...currencyAccounts.map((ca) => ({
+          label: ca.name,
+          value: ca.id,
+          type: 'currency' as const,
+        })),
+      ];
+
+      // Handle edge case: no accounts found
+      if (result.length === 0) {
+        console.warn(
+          `⚠️  No accounts found for adminId: ${adminId}`,
+        );
+        // Still cache empty results to avoid repeated DB queries
+        await this.redisService.setValue(cacheKey, result, 300);
+        return result;
+      }
+
+      // Sort by label for better UX
+      result.sort((a, b) => a.label.localeCompare(b.label));
+
+      // Save to Redis with TTL (10 minutes)
+      await this.redisService.setValue(cacheKey, result, 600);
+      console.log(
+        `💾 Cache SET for key: ${cacheKey} with ${result.length} accounts`,
+      );
+
+      return result;
+    } catch (error) {
+      console.error('❌ Error in getAllAccountsForDropdown:', error);
+      throw new InternalServerErrorException(
+        'Failed to load accounts. Please try again later.',
+      );
+    }
+  }
+
+  /**
+   * Helper method to fetch customer accounts with error handling
+   */
+  private async fetchCustomerAccounts(adminId: string) {
+    try {
+      const customers = await this.customerRepo.find({
+        select: ['id', 'name'],
+        where: { adminId },
+        order: { name: 'ASC' },
+      });
+      return customers;
+    } catch (error) {
+      console.error('Error fetching customer accounts:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Helper method to fetch bank accounts with error handling
+   */
+  private async fetchBankAccounts(adminId: string) {
+    try {
+      const banks = await this.bankRepo.find({
+        select: ['id', 'bankName', 'accountNumber'],
+        where: { adminId },
+        order: { bankName: 'ASC' },
+      });
+      return banks;
+    } catch (error) {
+      console.error('Error fetching bank accounts:', error);
+      return [];
+    }
+  }
+
+  private async fetchCurrencyAccounts(adminId: string) {
+    try {
+      const accounts = await this.currency_accounts.find({
+        select: ['id', 'name'],
+        where: { adminId },
+        order: { name: 'ASC' },
+      });
+      return accounts;
+    } catch (error) {
+      console.error('Error fetching currency accounts:', error);
+      return [];
+    }
+  }
+
+  async clearAccountsCache(adminId?: string): Promise<void> {
+    try {
+      if (adminId) {
+        const pattern = `all_accounts_${adminId}*`;
+        const deleted = await this.redisService.deleteKeysByPattern(pattern);
+        console.log(`🗑️  Cleared ${deleted} cache entries for adminId: ${adminId}`);
+      } else {
+        // Clear all account caches
+        const deleted =
+          await this.redisService.deleteKeysByPattern('all_accounts_*');
+        console.log(`🗑️  Cleared ${deleted} total account cache entries`);
+      }
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+      throw new InternalServerErrorException(
+        'Failed to clear cache. Please contact support.',
+      );
+    }
   }
 }

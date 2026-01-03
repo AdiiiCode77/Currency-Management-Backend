@@ -165,10 +165,6 @@ export class ReportService {
     }
   }
 
-  /**
-   * Invalidate report caches impacted by a new/updated Purchase entry
-   * Call this after creating/updating/deleting a PurchaseEntry
-   */
   async invalidateCachesAfterPurchaseEntry(
     adminId: string,
     customerId?: string,

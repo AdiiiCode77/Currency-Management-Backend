@@ -30,11 +30,7 @@ export class OtpController {
     description: 'OTP sent successfully.',
   })
   async SendOtp(@Body() body: SendOtpDto) {
-    try {
-      return this.otpService.Send(body);
-    } catch (error) {
-      return error;
-    }
+    return this.otpService.Send(body);
   }
 
   @Post('/verify')
@@ -58,11 +54,7 @@ export class OtpController {
     description: 'OTP verified successfully.',
   })
   async VerifyOtp(@Body() body: VerifyOtpDto) {
-    try {
-      return this.otpService.Verify(body);
-    } catch (error) {
-      throw error;
-    }
+    return this.otpService.Verify(body);
   }
 
   @Post('/reset-password')
@@ -85,10 +77,6 @@ export class OtpController {
     description: 'Password reset successfully.',
   })
   async ResetPassword(@Body() body: ResetPasswordDto) {
-    try {
-      return this.otpService.ResetPassword(body);
-    } catch (error) {
-      throw error;
-    }
+    return this.otpService.ResetPassword(body);
   }
 }
