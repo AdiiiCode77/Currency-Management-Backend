@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { CustomerCurrencyAccountEntity } from '../domain/entities/currencies-account.entity';
 import { CustomerCreateCurrencyAccountDto } from '../domain/dto/create-currency-account.dto';
 import { buildPaginationResponse } from 'src/shared/utils/pagination.utils';
@@ -76,7 +76,51 @@ export class CurrencyAccountService {
       adminId: adminId,
     });
 
-    return this.currencyRepo.save(currencyAcc);
+    const saved = await this.currencyRepo.save(currencyAcc);
+
+    // Invalidate currency accounts dropdown cache
+    const redis = this.redisService.getClient();
+    await redis.del(`currency-accounts-dropdown:${dto.currencyId}:${adminId}`);
+    console.log('🧹 Currency accounts dropdown cache invalidated after new account creation');
+
+    return saved;
+  }
+
+  async getCurrencyAccountsDropdown(currencyId: string, adminId: string) {
+    const cacheKey = `currency-accounts-dropdown:${currencyId}:${adminId}`;
+
+    const cached = await this.redisService.getValue(cacheKey);
+    if (cached) {
+      console.log('✅ Currency accounts dropdown cache HIT');
+      return cached;
+    }
+
+    console.log('❌ Currency accounts dropdown cache MISS');
+
+    const accounts = await this.currencyRepo.find({
+      where: { currencyId, adminId },
+      select: ['id', 'name', 'accountType', 'accountInfo', 'balance'],
+      order: { created_at: 'DESC' },
+    });
+
+    if (!accounts || accounts.length === 0) {
+      throw new NotFoundException(
+        'No currency accounts found for this currency and admin',
+      );
+    }
+
+    const result = accounts.map((account) => ({
+      id: account.id,
+      name: account.name,
+      accountType: account.accountType,
+      accountInfo: account.accountInfo,
+      balance: account.balance,
+    }));
+
+    await this.redisService.setValue(cacheKey, result, 600);
+    console.log('💾 Currency accounts dropdown cache SET');
+
+    return result;
   }
 
   async getCustomerById(id: string) {
@@ -272,8 +316,22 @@ export class CurrencyAccountService {
     return result;
   }
 
-  async getLedgers(adminId: string, accountId: string) {
-    const cacheKey = `ledger:${adminId}:${accountId}`;
+  async getLedgers(
+    adminId: string,
+    accountId: string,
+    currencyId: string,
+    fromDate?: string,
+    toDate?: string,
+  ) {
+    // Default toDate to today if not provided
+    const to = toDate ? new Date(toDate) : new Date();
+    to.setHours(23, 59, 59, 999);
+
+    // fromDate defaults to beginning of time if not provided
+    const from = fromDate ? new Date(fromDate) : new Date('1970-01-01');
+    from.setHours(0, 0, 0, 0);
+
+    const cacheKey = `ledger:${adminId}:${accountId}:${currencyId}:${from.toISOString()}:${to.toISOString()}`;
 
     const cached = await this.redisService.getValue(cacheKey);
     if (cached) {
@@ -284,7 +342,7 @@ export class CurrencyAccountService {
     console.log('❌ Ledger cache MISS');
 
     const account = await this.currencyRepo.findOne({
-      where: { id: accountId, adminId },
+      where: { id: accountId, adminId, currencyId },
     });
 
     if (!account) {
@@ -294,7 +352,11 @@ export class CurrencyAccountService {
     }
 
     const entries = await this.entryRepo.find({
-      where: { account: { id: accountId } },
+      where: {
+        account: { id: accountId },
+        date: Between(from, to),
+      },
+      order: { date: 'ASC' },
     });
 
     if (!entries || entries.length === 0) {

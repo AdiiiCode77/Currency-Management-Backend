@@ -74,6 +74,19 @@ export class CurrencyAccountController {
     return this.service.getCustomerById(id);
   }
 
+  @Get('dropdown/:currencyId')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+  @ApiOperation({
+    summary: 'Get All Currency Accounts for Dropdown with Redis Caching',
+  })
+  async getCurrencyAccountsDropdown(
+    @Param('currencyId') currencyId: string,
+    @Req() req: Request,
+  ) {
+    return await this.service.getCurrencyAccountsDropdown(currencyId, req.adminId);
+  }
+
   @Get('all-customer/:currencyId')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, IsAdminGuard)
@@ -137,13 +150,31 @@ export class CurrencyAccountController {
     return this.service.updateCustomer(id, dto);
   }
 
-  @Get('ledgers-details/:cid')
+  @Get('ledgers-details/:cid/:currencyId')
   @ApiOperation({
     summary:
-      'Get All Ledgers Based on Currency Accounts Give Currency Account Id in Param as cid',
+      'Get All Ledgers Based on Currency Accounts with optional date range filtering',
   })
-  async getLedgers(@Req() req: Request, @Param('cid') cid: string) {
-    return await this.service.getLedgers(req.adminId, cid);
+  @ApiQuery({
+    name: 'fromDate',
+    required: false,
+    type: String,
+    description: 'Start date in YYYY-MM-DD format (defaults to beginning of time)',
+  })
+  @ApiQuery({
+    name: 'toDate',
+    required: false,
+    type: String,
+    description: 'End date in YYYY-MM-DD format (defaults to today)',
+  })
+  async getLedgers(
+    @Req() req: Request,
+    @Param('cid') cid: string,
+    @Param('currencyId') currencyId: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+  ) {
+    return await this.service.getLedgers(req.adminId, cid, currencyId, fromDate, toDate);
   }
 
   @Get('trial-balance/:currencyId')
