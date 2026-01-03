@@ -51,13 +51,6 @@ export class CommonController {
     return await this.customerService.getRefBanks(req.adminId);
   }
 
-  /**
-   * Unified endpoint for all account types dropdown
-   * Combines customer, bank, and currency accounts
-   * Returns ALL currency accounts regardless of currency type
-   * @route GET /api/v1/customers/accounts/all-dropdown
-   * @returns Array of accounts with type information
-   */
   @Get('accounts/all-dropdown')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, IsAdminGuard)
@@ -74,11 +67,6 @@ export class CommonController {
     );
   }
 
-  /**
-   * Clear cached accounts for optimization
-   * Use after creating/updating/deleting accounts
-   * @route DELETE /api/v1/customers/cache/clear-accounts
-   */
   @Delete('cache/clear-accounts')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, IsAdminGuard)

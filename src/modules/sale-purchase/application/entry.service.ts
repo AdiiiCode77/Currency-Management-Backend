@@ -9,6 +9,7 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { PurchaseEntryEntity } from '../domain/entity/purchase_entries.entity';
 import { SellingEntryEntity } from '../domain/entity/selling_entries.entity';
 import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
+import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
 import { CreatePurchaseDto } from '../domain/dto/purchase-create.dto';
 import { CreateSellingDto } from '../domain/dto/selling-create.dto';
 import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
@@ -20,6 +21,7 @@ import { CurrencyPnlPreviewDto } from '../domain/dto/CurrencyPnlPreview.dto';
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 import { RedisService } from 'src/shared/modules/redis/redis.service';
 import { CurrencyStockEntity } from 'src/modules/currency/domain/entities/currency-stock.entity';
+import { CustomerCurrencyAccountEntity } from 'src/modules/currency/domain/entities/currencies-account.entity';
 
 @Injectable()
 export class SalePurchaseService {
@@ -36,6 +38,12 @@ export class SalePurchaseService {
 
     @InjectRepository(CustomerAccountEntity)
     private customerRepo: Repository<CustomerAccountEntity>,
+
+    @InjectRepository(BankAccountEntity)
+    private bankRepo: Repository<BankAccountEntity>,
+
+    @InjectRepository(CustomerCurrencyAccountEntity)
+    private currencyAccountRepo: Repository<CustomerCurrencyAccountEntity>,
 
     @InjectRepository(UserEntity)
     private userRepo: Repository<UserEntity>,
@@ -295,6 +303,51 @@ export class SalePurchaseService {
     };
   }
 
+  /**
+   * Validate that the account ID exists in at least one of the three account types
+   * @param accountId - The account ID to validate
+   * @param adminId - Admin ID for filtering
+   * @returns Account object with type information
+   */
+  private async validateAccountExists(
+    accountId: string,
+    adminId: string,
+  ): Promise<{ found: boolean; type?: 'customer' | 'bank' | 'currency' }> {
+    try {
+      // Check customer accounts
+      const customerAccount = await this.customerRepo.findOne({
+        where: { id: accountId, adminId },
+      });
+
+      if (customerAccount) {
+        return { found: true, type: 'customer' };
+      }
+
+      // Check bank accounts
+      const bankAccount = await this.bankRepo.findOne({
+        where: { id: accountId, adminId },
+      });
+
+      if (bankAccount) {
+        return { found: true, type: 'bank' };
+      }
+
+      // Check currency accounts
+      const currencyAccount = await this.currencyAccountRepo.findOne({
+        where: { id: accountId, adminId },
+      });
+
+      if (currencyAccount) {
+        return { found: true, type: 'currency' };
+      }
+
+      return { found: false };
+    } catch (error) {
+      console.error('Error validating account:', error);
+      throw new BadRequestException('Error validating account');
+    }
+  }
+
   async createPurchase(dto: CreatePurchaseDto, adminId: string) {
     return await this.dataSource.transaction(async (manager) => {
       const adminData = await this.adminRepo
@@ -311,6 +364,18 @@ export class SalePurchaseService {
       if (!adminData.u_id) throw new NotFoundException('User not found');
 
       const userId = adminData.u_id;
+
+      // Validate the account exists in one of three types
+      const accountValidation = await this.validateAccountExists(
+        dto.customerAccountId,
+        adminId,
+      );
+
+      if (!accountValidation.found) {
+        throw new BadRequestException(
+          `Account with ID "${dto.customerAccountId}" not found. Please select a valid customer, bank, or currency account.`,
+        );
+      }
 
       // 2. Fetch currency + customer
       const [currency, customer] = await Promise.all([
@@ -389,6 +454,18 @@ export class SalePurchaseService {
       if (!adminData.u_id) throw new NotFoundException('User not found');
 
       const userId = adminData.u_id;
+
+      // Validate the account exists in one of three types
+      const accountValidation = await this.validateAccountExists(
+        dto.customerAccountId,
+        adminId,
+      );
+
+      if (!accountValidation.found) {
+        throw new BadRequestException(
+          `Account with ID "${dto.customerAccountId}" not found. Please select a valid customer, bank, or currency account.`,
+        );
+      }
 
       const [currency, customer] = await Promise.all([
         manager.findOneBy(AddCurrencyEntity, { id: dto.fromCurrencyId }),

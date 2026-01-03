@@ -309,14 +309,12 @@ export class CommonService {
 
       console.log('❌ Cache MISS – fetching from database');
 
-      // Fetch all three account types in parallel
       const [customers, banks, currencyAccounts] = await Promise.all([
         this.fetchCustomerAccounts(adminId),
         this.fetchBankAccounts(adminId),
         this.fetchCurrencyAccounts(adminId),
       ]);
 
-      // Combine results with type information
       const result = [
         ...customers.map((c) => ({
           label: c.name,
@@ -335,20 +333,16 @@ export class CommonService {
         })),
       ];
 
-      // Handle edge case: no accounts found
       if (result.length === 0) {
         console.warn(
           `⚠️  No accounts found for adminId: ${adminId}`,
         );
-        // Still cache empty results to avoid repeated DB queries
         await this.redisService.setValue(cacheKey, result, 300);
         return result;
       }
 
-      // Sort by label for better UX
       result.sort((a, b) => a.label.localeCompare(b.label));
 
-      // Save to Redis with TTL (10 minutes)
       await this.redisService.setValue(cacheKey, result, 600);
       console.log(
         `💾 Cache SET for key: ${cacheKey} with ${result.length} accounts`,
@@ -363,9 +357,6 @@ export class CommonService {
     }
   }
 
-  /**
-   * Helper method to fetch customer accounts with error handling
-   */
   private async fetchCustomerAccounts(adminId: string) {
     try {
       const customers = await this.customerRepo.find({
@@ -380,9 +371,7 @@ export class CommonService {
     }
   }
 
-  /**
-   * Helper method to fetch bank accounts with error handling
-   */
+
   private async fetchBankAccounts(adminId: string) {
     try {
       const banks = await this.bankRepo.find({
