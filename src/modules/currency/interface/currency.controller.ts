@@ -111,8 +111,14 @@ export class CurrencyAccountController {
     type: String,
     description: 'Date in YYYY-MM-DD format',
   })
-  async getDailyBook(@Query() dto: DailyBookDto, @Req() req: Request) {
-    return await this.service.getDailyBook(dto, req.adminId);
+  @ApiQuery({
+    name: 'currencyId',
+    required: true,
+    type: String,
+    description: 'Currency ID to filter daily book entries',
+  })
+  async getDailyBook(@Query() dto: DailyBookDto, @Query('currencyId') currencyId: string, @Req() req: Request) {
+    return await this.service.getDailyBook(dto, req.adminId, currencyId);
   }
   // Update currency account (partial or full)
   @Patch(':id')

@@ -236,8 +236,8 @@ export class CurrencyAccountService {
     };
   }
 
-  async getDailyBook(filter: DailyBookDto, adminId: string) {
-    const cacheKey = `daily-book:${adminId}:${filter.date}`;
+  async getDailyBook(filter: DailyBookDto, adminId: string, currencyId: string) {
+    const cacheKey = `daily-book:${adminId}:${filter.date}:${currencyId}`;
 
     const cached = await this.redisService.getValue(cacheKey);
     if (cached) {
@@ -250,7 +250,11 @@ export class CurrencyAccountService {
     const date = new Date(filter.date);
 
     const entries = await this.entryRepo.find({
-      where: { date, adminId },
+      where: { 
+        date, 
+        adminId,
+        account: { currencyId }
+      },
       relations: ['account'],
       order: { created_at: 'DESC' },
     });
