@@ -184,13 +184,18 @@ export class ReportService {
     adminId: string,
     customerId?: string,
     currencyId?: string,
+    date?: string,
   ): Promise<void> {
     try {
       // Immediate stocks may change
       await this.redisService.deleteKey(`currencyStocks:${adminId}`);
 
-      // Daily reports (unknown dates): remove all by admin
-      await this.redisService.deleteKeysByPattern(`dailyBooksReport:${adminId}:*`);
+      // Daily reports: target specific date if provided, else all
+      if (date) {
+        await this.redisService.deleteKey(`dailyBooksReport:${adminId}:${date}`);
+      } else {
+        await this.redisService.deleteKeysByPattern(`dailyBooksReport:${adminId}:*`);
+      }
       await this.redisService.deleteKeysByPattern(`dailyBuyingReport:${adminId}:*`);
       await this.redisService.deleteKeysByPattern(`dailySellingReport:${adminId}:*`);
       await this.redisService.deleteKeysByPattern(`dailySellingReportByCurrency:${adminId}:*`);
@@ -224,13 +229,18 @@ export class ReportService {
     adminId: string,
     customerId?: string,
     currencyId?: string,
+    date?: string,
   ): Promise<void> {
     try {
       // Stocks change
       await this.redisService.deleteKey(`currencyStocks:${adminId}`);
 
       // Daily reports
-      await this.redisService.deleteKeysByPattern(`dailyBooksReport:${adminId}:*`);
+      if (date) {
+        await this.redisService.deleteKey(`dailyBooksReport:${adminId}:${date}`);
+      } else {
+        await this.redisService.deleteKeysByPattern(`dailyBooksReport:${adminId}:*`);
+      }
       await this.redisService.deleteKeysByPattern(`dailySellingReport:${adminId}:*`);
       await this.redisService.deleteKeysByPattern(`dailySellingReportByCurrency:${adminId}:*`);
 
@@ -286,6 +296,55 @@ export class ReportService {
     return deleted;
   }
 
+  // New targeted invalidation helpers for journal entries
+  async invalidateCachesAfterBankPaymentEntry(adminId: string, date?: string): Promise<void> {
+    try {
+      if (date) {
+        await this.redisService.deleteKey(`dailyBooksReport:${adminId}:${date}`);
+      } else {
+        await this.redisService.deleteKeysByPattern(`dailyBooksReport:${adminId}:*`);
+      }
+    } catch (e) {
+      this.logger.warn(`Cache invalidation (bank payment) failed: ${e?.message || e}`);
+    }
+  }
+
+  async invalidateCachesAfterBankReceiverEntry(adminId: string, date?: string): Promise<void> {
+    try {
+      if (date) {
+        await this.redisService.deleteKey(`dailyBooksReport:${adminId}:${date}`);
+      } else {
+        await this.redisService.deleteKeysByPattern(`dailyBooksReport:${adminId}:*`);
+      }
+    } catch (e) {
+      this.logger.warn(`Cache invalidation (bank receiver) failed: ${e?.message || e}`);
+    }
+  }
+
+  async invalidateCachesAfterCashPaymentEntry(adminId: string, date?: string): Promise<void> {
+    try {
+      if (date) {
+        await this.redisService.deleteKey(`dailyBooksReport:${adminId}:${date}`);
+      } else {
+        await this.redisService.deleteKeysByPattern(`dailyBooksReport:${adminId}:*`);
+      }
+    } catch (e) {
+      this.logger.warn(`Cache invalidation (cash payment) failed: ${e?.message || e}`);
+    }
+  }
+
+  async invalidateCachesAfterCashReceivedEntry(adminId: string, date?: string): Promise<void> {
+    try {
+      if (date) {
+        await this.redisService.deleteKey(`dailyBooksReport:${adminId}:${date}`);
+      } else {
+        await this.redisService.deleteKeysByPattern(`dailyBooksReport:${adminId}:*`);
+      }
+    } catch (e) {
+      this.logger.warn(`Cache invalidation (cash received) failed: ${e?.message || e}`);
+    }
+  }
+
   async dailyBooksReport(adminId: string, date: string): Promise<any> {
     try {
       // Validate date format
@@ -305,22 +364,143 @@ export class ReportService {
       this.logger.debug(`🛑 Daily Books Report cache MISS for ${date}`);
 
       // Optimized parallel queries with timeout
-      const [sellingEntries, purchaseEntries, currencyEntries] = await Promise.race<any[]>([
+      const [
+        sellingEntries,
+        purchaseEntries,
+        currencyEntries,
+        bankPaymentEntries,
+        bankReceiverEntries,
+        cashPaymentEntries,
+        cashReceivedEntries,
+      ] = await Promise.race<any[]>([
         Promise.all([
-          this.sellingEntryRepository.find({
-            where: { adminId, date: dateObj },
-            select: ['id', 'sNo', 'amountCurrency', 'amountPkr', 'rate', 'date'],
-            take: 1000, // Limit results for performance
-          }),
-          this.purchaseEntryRepository.find({
-            where: { adminId, date: dateObj },
-            select: ['id', 'purchaseNumber', 'amountCurrency', 'amountPkr', 'rate', 'date'],
-            take: 1000,
-          }),
-          this.currencyEntryRepository.find({
-            where: { adminId, date: dateObj },
-            take: 1000,
-          }),
+          // Selling
+          this.sellingEntryRepository
+            .createQueryBuilder('s')
+            .leftJoin('s.customerAccount', 'customer')
+            .where('s.adminId = :adminId', { adminId })
+            .andWhere('s.date = :date', { date })
+            .select([
+              's.id',
+              's.sNo',
+              's.amountCurrency',
+              's.amountPkr',
+              's.rate',
+              's.date',
+              'customer.name',
+            ])
+            .orderBy('s.date', 'ASC')
+            .take(1000)
+            .getMany(),
+          // Purchase
+          this.purchaseEntryRepository
+            .createQueryBuilder('p')
+            .leftJoin('p.customerAccount', 'customer')
+            .where('p.adminId = :adminId', { adminId })
+            .andWhere('p.date = :date', { date })
+            .select([
+              'p.id',
+              'p.purchaseNumber',
+              'p.amountCurrency',
+              'p.amountPkr',
+              'p.rate',
+              'p.date',
+              'customer.name',
+            ])
+            .orderBy('p.date', 'ASC')
+            .take(1000)
+            .getMany(),
+          // Currency account entries
+          this.currencyEntryRepository
+            .createQueryBuilder('ce')
+            .leftJoin('ce.account', 'acc')
+            .leftJoin(AddCurrencyEntity, 'cur', 'cur.id = acc.currencyId')
+            .where('ce.adminId = :adminId', { adminId })
+            .andWhere('ce.date = :date', { date })
+            .select([
+              'ce.id',
+              'ce.date',
+              'ce.amount',
+              'ce.balance',
+              'ce.entryType',
+              'acc.id',
+              'cur.name',
+              'cur.code',
+            ])
+            .orderBy('ce.date', 'ASC')
+            .take(1000)
+            .getMany(),
+          // Bank payment (Bank -> Customer)
+          this.bankPaymentRepository
+            .createQueryBuilder('bp')
+            .leftJoin('bp.crAccount', 'bank')
+            .leftJoin('bp.drAccount', 'cust')
+            .where('bp.adminId = :adminId', { adminId })
+            .andWhere('bp.date = :date', { date })
+            .select([
+              'bp.id',
+              'bp.date',
+              'bp.amount',
+              'bp.description',
+              'bp.chqNo',
+              'bank.bankName',
+              'bank.accountNumber',
+              'cust.name',
+            ])
+            .orderBy('bp.date', 'ASC')
+            .take(1000)
+            .getMany(),
+          // Bank receiver (Customer -> Bank)
+          this.bankReceiverRepository
+            .createQueryBuilder('br')
+            .leftJoin('br.crAccount', 'cust')
+            .leftJoin('br.drAccount', 'bank')
+            .where('br.adminId = :adminId', { adminId })
+            .andWhere('br.date = :date', { date })
+            .select([
+              'br.id',
+              'br.date',
+              'br.amount',
+              'br.branchCode',
+              'cust.name',
+              'bank.bankName',
+              'bank.accountNumber',
+            ])
+            .orderBy('br.date', 'ASC')
+            .take(1000)
+            .getMany(),
+          // Cash payment (Cash -> Customer)
+          this.cashPaymentRepository
+            .createQueryBuilder('cp')
+            .leftJoin('cp.drAccount', 'cust')
+            .where('cp.adminId = :adminId', { adminId })
+            .andWhere('cp.date = :date', { date })
+            .select([
+              'cp.id',
+              'cp.date',
+              'cp.amount',
+              'cp.description',
+              'cust.name',
+            ])
+            .orderBy('cp.date', 'ASC')
+            .take(1000)
+            .getMany(),
+          // Cash received (Customer -> Cash)
+          this.cashReceivedRepository
+            .createQueryBuilder('cr')
+            .leftJoin('cr.crAccount', 'cust')
+            .where('cr.adminId = :adminId', { adminId })
+            .andWhere('cr.date = :date', { date })
+            .select([
+              'cr.id',
+              'cr.date',
+              'cr.amount',
+              'cr.description',
+              'cust.name',
+            ])
+            .orderBy('cr.date', 'ASC')
+            .take(1000)
+            .getMany(),
         ]),
         new Promise<any[]>((_, reject) =>
           setTimeout(
@@ -334,8 +514,19 @@ export class ReportService {
         sellingEntries: sellingEntries || [],
         purchaseEntries: purchaseEntries || [],
         currencyEntries: currencyEntries || [],
+        bankPaymentEntries: bankPaymentEntries || [],
+        bankReceiverEntries: bankReceiverEntries || [],
+        cashPaymentEntries: cashPaymentEntries || [],
+        cashReceivedEntries: cashReceivedEntries || [],
         date,
-        recordCount: (sellingEntries?.length || 0) + (purchaseEntries?.length || 0) + (currencyEntries?.length || 0),
+        recordCount:
+          (sellingEntries?.length || 0) +
+          (purchaseEntries?.length || 0) +
+          (currencyEntries?.length || 0) +
+          (bankPaymentEntries?.length || 0) +
+          (bankReceiverEntries?.length || 0) +
+          (cashPaymentEntries?.length || 0) +
+          (cashReceivedEntries?.length || 0),
       };
 
       await this.redisService.setValue(cacheKey, JSON.stringify(response), this.CACHE_DURATION);
@@ -353,7 +544,6 @@ export class ReportService {
 
   async dailyBuyingReport(adminId: string, date: string): Promise<any> {
     try {
-      // Validate date
       const dateObj = new Date(date);
       if (isNaN(dateObj.getTime())) {
         throw new BadRequestException('Invalid date format. Use YYYY-MM-DD format.');
@@ -368,7 +558,6 @@ export class ReportService {
 
       this.logger.debug(`🛑 Daily Buying Report cache MISS for ${date}`);
 
-      // Optimized query with only necessary columns
       const purchaseEntries = await Promise.race<any[]>([
         this.purchaseEntryRepository
           .createQueryBuilder('pe')
