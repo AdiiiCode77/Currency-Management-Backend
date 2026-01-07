@@ -37,8 +37,23 @@ import {
 @Injectable()
 export class ReportService {
   private readonly logger = new Logger(ReportService.name);
-  private readonly CACHE_DURATION = 3600; // 1 hour
-  private readonly QUERY_TIMEOUT = 30000; // 30 seconds
+  private readonly CACHE_DURATION = 3600;
+  private readonly QUERY_TIMEOUT = 30000;
+
+  private toISODateString(input: any): string {
+    if (!input) return '';
+    try {
+      const d = input instanceof Date ? input : new Date(input);
+      if (isNaN(d.getTime())) {
+        const s = String(input);
+        return s.length >= 10 ? s.slice(0, 10) : s;
+      }
+      return d.toISOString().split('T')[0];
+    } catch {
+      const s = String(input);
+      return s.length >= 10 ? s.slice(0, 10) : s;
+    }
+  }
 
   constructor(
     @InjectRepository(SellingEntryEntity)
@@ -205,10 +220,6 @@ export class ReportService {
     }
   }
 
-  /**
-   * Invalidate report caches impacted by a new/updated Selling entry
-   * Call this after creating/updating/deleting a SellingEntry
-   */
   async invalidateCachesAfterSellingEntry(
     adminId: string,
     customerId?: string,
@@ -248,10 +259,6 @@ export class ReportService {
     }
   }
 
-  /**
-   * Invalidate all report caches for an admin (heavy hammer)
-   * Use for bulk imports or maintenance
-   */
   async invalidateAllReportCachesForAdmin(adminId: string): Promise<number> {
     const patterns = [
       `currencyStocks:${adminId}`,
@@ -654,12 +661,11 @@ export class ReportService {
 
   async ledgersCurrencyReport(
     adminId: string,
+    currencyId?: string,
     dateFrom?: string,
     dateTo?: string,
-    currencyId?: string,
   ): Promise<any> {
     try {
-      // Validate inputs
       if (!currencyId) {
         throw new BadRequestException('Currency ID is required for this report.');
       }
@@ -673,7 +679,6 @@ export class ReportService {
 
       this.logger.debug(`🛑 Ledgers Currency Report cache MISS`);
 
-      // Optimized parallel queries with timeout
       const [sellingEntries, purchaseEntries] = await Promise.race<any[]>([
         Promise.all([
           this.sellingEntryRepository
@@ -726,16 +731,16 @@ export class ReportService {
       // Normalize and combine entries
       const rows = [
         ...sellingEntries.map((e) => ({
-          date: e.date.toISOString().split('T')[0],
+          date: this.toISODateString(e.date),
           orderNo: e.sNo,
-          narration: `${e.customerAccount?.name || 'Customer'} A/C`,
+          narration: `Sale to ${e.customerAccount?.name || 'Customer'}${e.sNo ? ` (S.No: ${e.sNo})` : ''}`,
           dr: 0,
           cr: Number(e.amountCurrency) || 0,
         })),
         ...purchaseEntries.map((e) => ({
-          date: e.date.toISOString().split('T')[0],
+          date: this.toISODateString(e.date),
           orderNo: e.purchaseNumber,
-          narration: `${e.customerAccount?.name || 'Customer'} A/C`,
+          narration: `Purchase from ${e.customerAccount?.name || 'Customer'}${e.purchaseNumber ? ` (P.No: ${e.purchaseNumber})` : ''}`,
           dr: Number(e.amountCurrency) || 0,
           cr: 0,
         })),
@@ -774,11 +779,6 @@ export class ReportService {
     }
   }
 
-  /**
-   * Get a comprehensive balance sheet for the entire business
-   * Computes balances from actual transaction tables (selling, purchase, journal, bank, cash)
-   * Shows all accounts, currencies, customers, and banks with their debits, credits, and balances
-   */
   async getBalanceSheet(
     adminId: string,
     dateFrom?: Date,
@@ -989,11 +989,6 @@ export class ReportService {
     }
   }
 
-  /**
-   * Get detailed balance sheet with all transaction entries per account
-   * Computes ledger entries from all transaction tables (selling, purchase, journal, bank, cash)
-   * Shows per-account transaction history with running balances
-   */
   async getDetailedBalanceSheet(
     adminId: string,
     dateFrom?: Date,
@@ -1163,7 +1158,6 @@ export class ReportService {
     }
   }
 
-  // Currency Income Statement - P&L Analysis
   async getCurrencyIncomeStatement(
     adminId: string,
     dateFrom?: Date,
@@ -1413,10 +1407,6 @@ export class ReportService {
     }
   }
 
-  /**
-   * Get all purchase transactions for a specific customer and currency with optional date range
-   * Returns detailed purchase entries filtered by customer, currency, and date
-   */
   async getCustomerCurrencyPurchaseReport(
     adminId: string,
     customerId: string,
@@ -1575,10 +1565,6 @@ export class ReportService {
     }
   }
 
-  /**
-   * Get all selling transactions for a specific customer and currency with optional date range
-   * Includes account lists (customers, currencies, banks, generals) for convenience
-   */
   async getCustomerCurrencySaleReport(
     adminId: string,
     customerId: string,
