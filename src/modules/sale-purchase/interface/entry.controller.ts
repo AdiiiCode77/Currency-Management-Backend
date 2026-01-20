@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -11,6 +12,8 @@ import {
 import { SalePurchaseService } from '../application/entry.service';
 import { CreatePurchaseDto } from '../domain/dto/purchase-create.dto';
 import { CreateSellingDto } from '../domain/dto/selling-create.dto';
+import { UpdatePurchaseDto } from '../domain/dto/purchase-update.dto';
+import { UpdateSellingDto } from '../domain/dto/selling-update.dto';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
 import { IsAdminGuard } from '../../../shared/guards/isAdmin.guard';
@@ -77,5 +80,65 @@ export class SalePurchaseController {
     @Req() req: Request,
   ) {
     return this.service.getCurrencyPnlPreview(req.adminId, dto);
+  }
+
+  // ✅ GET PURCHASE ENTRY BY ID
+  @Get('purchase/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+  @ApiOperation({
+    summary: 'Get Purchase Entry by ID',
+    description: 'Retrieves a specific purchase entry with all related data.',
+  })
+  async getPurchaseById(@Param('id') entryId: string, @Req() req: Request) {
+    return this.service.getPurchaseById(entryId, req.adminId);
+  }
+
+  // ✅ GET SELLING ENTRY BY ID
+  @Get('selling/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+  @ApiOperation({
+    summary: 'Get Selling Entry by ID',
+    description: 'Retrieves a specific selling entry with all related data.',
+  })
+  async getSellingById(@Param('id') entryId: string, @Req() req: Request) {
+    return this.service.getSellingById(entryId, req.adminId);
+  }
+
+  // ✅ UPDATE PURCHASE ENTRY
+  @Put('purchase/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+  @ApiOperation({
+    summary: 'Update Purchase Entry',
+    description:
+      'Updates an existing purchase entry. Automatically recalculates currency relations and general ledger entries.',
+  })
+  @ApiBody({ type: UpdatePurchaseDto })
+  async updatePurchase(
+    @Param('id') entryId: string,
+    @Body() dto: UpdatePurchaseDto,
+    @Req() req: Request,
+  ) {
+    return this.service.updatePurchase(entryId, dto, req.adminId);
+  }
+
+  // ✅ UPDATE SELLING ENTRY
+  @Put('selling/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+  @ApiOperation({
+    summary: 'Update Selling Entry',
+    description:
+      'Updates an existing selling entry. Automatically recalculates currency relations and general ledger entries.',
+  })
+  @ApiBody({ type: UpdateSellingDto })
+  async updateSelling(
+    @Param('id') entryId: string,
+    @Body() dto: UpdateSellingDto,
+    @Req() req: Request,
+  ) {
+    return this.service.updateSelling(entryId, dto, req.adminId);
   }
 }

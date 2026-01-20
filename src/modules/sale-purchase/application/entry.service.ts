@@ -12,6 +12,8 @@ import { CustomerAccountEntity } from '../../account/domain/entity/customer-acco
 import { BankAccountEntity } from '../../account/domain/entity/bank-account.entity';
 import { CreatePurchaseDto } from '../domain/dto/purchase-create.dto';
 import { CreateSellingDto } from '../domain/dto/selling-create.dto';
+import { UpdatePurchaseDto } from '../domain/dto/purchase-update.dto';
+import { UpdateSellingDto } from '../domain/dto/selling-update.dto';
 import { AddCurrencyEntity } from '../../account/domain/entity/currency.entity';
 import { UserEntity } from '../../users/domain/entities/user.entity';
 import { AdminEntity } from '../../users/domain/entities/admin.entity';
@@ -731,6 +733,408 @@ export class SalePurchaseService {
       }
 
       return entry;
+    });
+  }
+
+  async getPurchaseById(entryId: string, adminId: string): Promise<PurchaseEntryEntity> {
+    const entry = await this.purchaseRepo.findOne({
+      where: { id: entryId, adminId },
+      relations: ['fromCurrency', 'customerAccount'],
+    });
+
+    if (!entry) {
+      throw new NotFoundException(`Purchase entry with ID "${entryId}" not found`);
+    }
+
+    return entry;
+  }
+
+  async getSellingById(entryId: string, adminId: string): Promise<SellingEntryEntity> {
+    const entry = await this.sellingRepo.findOne({
+      where: { id: entryId, adminId },
+      relations: ['fromCurrency', 'customerAccount'],
+    });
+
+    if (!entry) {
+      throw new NotFoundException(`Selling entry with ID "${entryId}" not found`);
+    }
+
+    return entry;
+  }
+
+  async updatePurchase(
+    entryId: string,
+    dto: UpdatePurchaseDto,
+    adminId: string,
+  ): Promise<PurchaseEntryEntity> {
+    return await this.dataSource.transaction(async (manager) => {
+      // 1. Find existing entry
+      const entry = await manager.findOne(PurchaseEntryEntity, {
+        where: { id: entryId, adminId },
+        relations: ['fromCurrency', 'customerAccount'],
+      });
+
+      if (!entry) {
+        throw new NotFoundException(`Purchase entry with ID "${entryId}" not found`);
+      }
+
+      const adminData = await this.adminRepo
+        .createQueryBuilder('a')
+        .leftJoin('user_profiles', 'up', 'up.id = a.user_profile_id')
+        .leftJoin('users', 'u', 'u.id = up.user_id')
+        .where('a.id = :adminId', { adminId })
+        .select(['a.id AS admin_id', 'up.id AS up_id', 'u.id AS u_id'])
+        .getRawOne();
+
+      if (!adminData) throw new NotFoundException('Admin not found');
+      const userId = adminData.u_id;
+
+      // Store old values for reversal
+      const oldCurrencyId = entry.currencyDrId;
+      const oldAmountCurrency = Number(entry.amountCurrency);
+      const oldAmountPkr = Number(entry.amountPkr);
+
+      // 2. Validate and fetch new references if changed
+      let currency = entry.fromCurrency;
+      let customer = entry.customerAccount;
+
+      if (dto.currencyDrId && dto.currencyDrId !== entry.currencyDrId) {
+        currency = await manager.findOne(AddCurrencyEntity, {
+          where: { id: dto.currencyDrId },
+        });
+        if (!currency) {
+          throw new NotFoundException('Currency not found');
+        }
+      }
+
+      if (dto.customerAccountId && dto.customerAccountId !== entry.customerAccountId) {
+        customer = await manager.findOne(CustomerAccountEntity, {
+          where: { id: dto.customerAccountId },
+        });
+        if (!customer) {
+          throw new NotFoundException('Customer account not found');
+        }
+      }
+
+      // 3. Calculate new amounts if rate or currency amount changed
+      let newAmountPkr = dto.amountPkr || Number(entry.amountPkr);
+      let newAmountCurrency = dto.amountCurrency || Number(entry.amountCurrency);
+      let newRate = dto.rate || Number(entry.rate);
+
+      if (dto.amountCurrency && dto.rate) {
+        newAmountPkr = dto.amountCurrency * dto.rate;
+      }
+
+      // 4. Reverse old currency relation
+      const oldRelation = await manager.findOne(CurrencyRelationEntity, {
+        where: { userId, adminId, currencyId: oldCurrencyId },
+      });
+
+      if (oldRelation) {
+        await manager.update(
+          CurrencyRelationEntity,
+          { id: oldRelation.id },
+          {
+            balance: Number(oldRelation.balance) - oldAmountCurrency,
+            balancePkr: Number(oldRelation.balancePkr) - oldAmountPkr,
+          },
+        );
+      }
+
+      // 5. Apply new currency relation
+      const newCurrencyId = dto.currencyDrId || oldCurrencyId;
+      const newRelation = await manager.findOne(CurrencyRelationEntity, {
+        where: { userId, adminId, currencyId: newCurrencyId },
+      });
+
+      if (!newRelation) {
+        await manager.insert(CurrencyRelationEntity, {
+          userId,
+          adminId,
+          currencyId: newCurrencyId,
+          balance: newAmountCurrency,
+          balancePkr: newAmountPkr,
+        });
+      } else {
+        await manager.update(
+          CurrencyRelationEntity,
+          { id: newRelation.id },
+          {
+            balance: Number(newRelation.balance) + newAmountCurrency,
+            balancePkr: Number(newRelation.balancePkr) + newAmountPkr,
+          },
+        );
+      }
+
+      // 6. Update the entry
+      await manager.update(
+        PurchaseEntryEntity,
+        { id: entryId },
+        {
+          date: dto.date || entry.date,
+          manualRef: dto.manualRef !== undefined ? dto.manualRef : entry.manualRef,
+          amountCurrency: newAmountCurrency,
+          rate: newRate,
+          amountPkr: newAmountPkr,
+          description: dto.description !== undefined ? dto.description : entry.description,
+          currencyDrId: currency.id,
+          customerAccountId: customer.id,
+        },
+      );
+
+      // 7. Delete old general ledger entries
+      await this.generalLedgerService.deleteLedgerEntriesBySource(entryId, manager);
+
+      // 8. Create new general ledger entries
+      await this.generalLedgerService.createLedgerEntries(
+        [
+          {
+            adminId,
+            transactionDate: dto.date || entry.date,
+            accountId: customer.id,
+            accountName: customer.name,
+            accountType: 'CUSTOMER',
+            entryType: 'PURCHASE',
+            sourceEntryId: entryId,
+            referenceNumber: entry.purchaseNumber?.toString(),
+            creditAmount: newAmountPkr,
+            debitAmount: 0,
+            currencyAmount: newAmountCurrency,
+            currencyCode: currency.name,
+            exchangeRate: newRate,
+            description: dto.description || entry.description,
+            contraAccountId: currency.id,
+            contraAccountName: currency.name,
+          },
+          {
+            adminId,
+            transactionDate: dto.date || entry.date,
+            accountId: currency.id,
+            accountName: currency.name,
+            accountType: 'CURRENCY',
+            entryType: 'PURCHASE',
+            sourceEntryId: entryId,
+            referenceNumber: entry.purchaseNumber?.toString(),
+            debitAmount: newAmountPkr,
+            creditAmount: 0,
+            currencyAmount: newAmountCurrency,
+            currencyCode: currency.name,
+            exchangeRate: newRate,
+            description: dto.description || entry.description,
+            contraAccountId: customer.id,
+            contraAccountName: customer.name,
+          },
+        ],
+        manager,
+      );
+
+      // 9. Update currency stock
+      await this.updateCurrencyStock(manager, adminId, currency.id);
+      if (oldCurrencyId !== newCurrencyId) {
+        await this.updateCurrencyStock(manager, adminId, oldCurrencyId);
+      }
+
+      // 10. Clear cache
+      const redis = this.redisService.getClient();
+      const dateKey = dto.date || entry.date;
+      await redis.del(`dailyBooksReport:${adminId}:${dateKey}`);
+      await redis.del(`dailyBuyingReport:${adminId}:${dateKey}`);
+
+      // Return updated entry
+      return await manager.findOne(PurchaseEntryEntity, {
+        where: { id: entryId },
+        relations: ['fromCurrency', 'customerAccount'],
+      });
+    });
+  }
+
+  /**
+   * Update selling entry by ID
+   */
+  async updateSelling(
+    entryId: string,
+    dto: UpdateSellingDto,
+    adminId: string,
+  ): Promise<SellingEntryEntity> {
+    return await this.dataSource.transaction(async (manager) => {
+      // 1. Find existing entry
+      const entry = await manager.findOne(SellingEntryEntity, {
+        where: { id: entryId, adminId },
+        relations: ['fromCurrency', 'customerAccount'],
+      });
+
+      if (!entry) {
+        throw new NotFoundException(`Selling entry with ID "${entryId}" not found`);
+      }
+
+      const adminData = await this.adminRepo
+        .createQueryBuilder('a')
+        .leftJoin('user_profiles', 'up', 'up.id = a.user_profile_id')
+        .leftJoin('users', 'u', 'u.id = up.user_id')
+        .where('a.id = :adminId', { adminId })
+        .select(['a.id AS admin_id', 'up.id AS up_id', 'u.id AS u_id'])
+        .getRawOne();
+
+      if (!adminData) throw new NotFoundException('Admin not found');
+      const userId = adminData.u_id;
+
+      // Store old values for reversal
+      const oldCurrencyId = entry.fromCurrency.id;
+      const oldAmountCurrency = Number(entry.amountCurrency);
+      const oldAvgRate = Number(entry.avgRate);
+
+      // 2. Validate and fetch new references if changed
+      let currency = entry.fromCurrency;
+      let customer = entry.customerAccount;
+
+      if (dto.fromCurrencyId && dto.fromCurrencyId !== oldCurrencyId) {
+        currency = await manager.findOne(AddCurrencyEntity, {
+          where: { id: dto.fromCurrencyId },
+        });
+        if (!currency) {
+          throw new NotFoundException('Currency not found');
+        }
+      }
+
+      if (dto.customerAccountId && dto.customerAccountId !== entry.customerAccount.id) {
+        customer = await manager.findOne(CustomerAccountEntity, {
+          where: { id: dto.customerAccountId },
+        });
+        if (!customer) {
+          throw new NotFoundException('Customer account not found');
+        }
+      }
+
+      // 3. Calculate new amounts
+      let newAmountPkr = dto.amountPkr || Number(entry.amountPkr);
+      let newAmountCurrency = dto.amountCurrency || Number(entry.amountCurrency);
+      let newRate = dto.rate || Number(entry.rate);
+      let newAvgRate = dto.avgRate || Number(entry.avgRate);
+
+      if (dto.amountCurrency && dto.rate) {
+        const expectedPkr = dto.amountCurrency * dto.rate;
+        if (dto.amountPkr && Math.abs(dto.amountPkr - expectedPkr) > 0.01) {
+          throw new BadRequestException('PKR amount mismatch with conversion rate');
+        }
+        newAmountPkr = expectedPkr;
+      }
+
+      // 4. Reverse old currency relation (add back sold currency)
+      const oldRelation = await manager.findOne(CurrencyRelationEntity, {
+        where: { userId, adminId, currencyId: oldCurrencyId },
+      });
+
+      if (oldRelation) {
+        await manager.update(
+          CurrencyRelationEntity,
+          { id: oldRelation.id },
+          {
+            balance: Number(oldRelation.balance) + oldAmountCurrency,
+            balancePkr: Number(oldRelation.balancePkr) + (oldAvgRate * oldAmountCurrency),
+          },
+        );
+      }
+
+      // 5. Apply new currency relation (subtract new sold amount)
+      const newCurrencyId = dto.fromCurrencyId || oldCurrencyId;
+      const newRelation = await manager.findOne(CurrencyRelationEntity, {
+        where: { userId, adminId, currencyId: newCurrencyId },
+      });
+
+      if (!newRelation) {
+        throw new BadRequestException('Insufficient currency balance for this sale');
+      }
+
+      await manager.update(
+        CurrencyRelationEntity,
+        { id: newRelation.id },
+        {
+          balance: Number(newRelation.balance) - newAmountCurrency,
+          balancePkr: Number(newRelation.balancePkr) - (newAvgRate * newAmountCurrency),
+        },
+      );
+
+      // 6. Update the entry
+      await manager.update(
+        SellingEntryEntity,
+        { id: entryId },
+        {
+          date: dto.date || entry.date,
+          sNo: dto.sNo !== undefined ? dto.sNo : entry.sNo,
+          avgRate: newAvgRate,
+          manualRef: dto.manualRef !== undefined ? dto.manualRef : entry.manualRef,
+          amountCurrency: newAmountCurrency,
+          rate: newRate,
+          amountPkr: newAmountPkr,
+          margin: dto.margin !== undefined ? dto.margin : entry.margin,
+          pl: dto.pl !== undefined ? dto.pl : entry.pl,
+          description: dto.description !== undefined ? dto.description : entry.description,
+          fromCurrencyId: currency.id,
+        },
+      );
+
+      // 7. Delete old general ledger entries
+      await this.generalLedgerService.deleteLedgerEntriesBySource(entryId, manager);
+
+      // 8. Create new general ledger entries
+      await this.generalLedgerService.createLedgerEntries(
+        [
+          {
+            adminId,
+            transactionDate: dto.date || entry.date,
+            accountId: customer.id,
+            accountName: customer.name,
+            accountType: 'CUSTOMER',
+            entryType: 'SALE',
+            sourceEntryId: entryId,
+            referenceNumber: entry.saleNumber?.toString(),
+            debitAmount: newAmountPkr,
+            creditAmount: 0,
+            currencyAmount: newAmountCurrency,
+            currencyCode: currency.name,
+            exchangeRate: newRate,
+            description: dto.description || entry.description,
+            contraAccountId: currency.id,
+            contraAccountName: currency.name,
+          },
+          {
+            adminId,
+            transactionDate: dto.date || entry.date,
+            accountId: currency.id,
+            accountName: currency.name,
+            accountType: 'CURRENCY',
+            entryType: 'SALE',
+            sourceEntryId: entryId,
+            referenceNumber: entry.saleNumber?.toString(),
+            creditAmount: newAmountPkr,
+            debitAmount: 0,
+            currencyAmount: newAmountCurrency,
+            currencyCode: currency.name,
+            exchangeRate: newRate,
+            description: dto.description || entry.description,
+            contraAccountId: customer.id,
+            contraAccountName: customer.name,
+          },
+        ],
+        manager,
+      );
+
+      // 9. Update currency stock
+      await this.updateCurrencyStock(manager, adminId, currency.id);
+      if (oldCurrencyId !== newCurrencyId) {
+        await this.updateCurrencyStock(manager, adminId, oldCurrencyId);
+      }
+
+      // 10. Clear cache
+      const redis = this.redisService.getClient();
+      const dateKey = dto.date || entry.date;
+      await redis.del(`dailyBooksReport:${adminId}:${dateKey}`);
+
+      // Return updated entry
+      return await manager.findOne(SellingEntryEntity, {
+        where: { id: entryId },
+        relations: ['fromCurrency', 'customerAccount'],
+      });
     });
   }
 }
