@@ -1,9 +1,9 @@
 //reports module
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { SellingEntryEntity } from 'src/modules/sale-purchase/domain/entity/selling_entries.entity';
-import { PurchaseEntryEntity } from 'src/modules/sale-purchase/domain/entity/purchase_entries.entity';
-import { RedisService } from 'src/shared/modules/redis/redis.service';
+import { SellingEntryEntity } from '../sale-purchase/domain/entity/selling_entries.entity';
+import { PurchaseEntryEntity } from '../sale-purchase/domain/entity/purchase_entries.entity';
+import { RedisService } from '../../shared/modules/redis/redis.service';
 import { ReportController } from './interface/report.controller';
 import { ReportService } from './application/report.service';
 import { CustomerCurrencyEntryEntity } from '../currency/domain/entities/currency-entry.entity';

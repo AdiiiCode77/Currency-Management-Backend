@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { JournalService } from '../application/jounal.service';
 import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
-import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
+import { IsAdminGuard } from '../../../shared/guards/isAdmin.guard';
 
 @ApiTags('Journal Entries - Get')
 @Controller('api/v1/journal')

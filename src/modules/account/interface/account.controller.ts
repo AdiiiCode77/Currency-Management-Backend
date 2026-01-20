@@ -9,13 +9,13 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import AccountService from '../application/account.service';
-import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
+import { IsAdminGuard } from '../../../shared/guards/isAdmin.guard';
 import { CreateCustomerAccountDto } from '../domain/dto/create-customer-account.dto';
 import { Request } from 'express';
 import { CreateBankAccountDto } from '../domain/dto/create-bank-account.dto';
 import { CreateGeneralAccountDto } from '../domain/dto/create-general-account.dto';
 import { CreateEmployeeAccountDto } from '../domain/dto/create-employee-account.dto';
-import { PaginationDto } from 'src/shared/modules/dtos/pagination.dto';
+import { PaginationDto } from '../../../shared/modules/dtos/pagination.dto';
 import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
 import { CreateAddExpenseDto } from '../domain/dto/create-add-expense.dto';
 import { CreateAddChqRefBankDto } from '../domain/dto/create-add-chq-ref-bank.dto';

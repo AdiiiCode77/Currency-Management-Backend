@@ -8,22 +8,22 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { PurchaseEntryEntity } from '../domain/entity/purchase_entries.entity';
 import { SellingEntryEntity } from '../domain/entity/selling_entries.entity';
-import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
-import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
+import { CustomerAccountEntity } from '../../account/domain/entity/customer-account.entity';
+import { BankAccountEntity } from '../../account/domain/entity/bank-account.entity';
 import { CreatePurchaseDto } from '../domain/dto/purchase-create.dto';
 import { CreateSellingDto } from '../domain/dto/selling-create.dto';
-import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
-import { UserEntity } from 'src/modules/users/domain/entities/user.entity';
-import { AdminEntity } from 'src/modules/users/domain/entities/admin.entity';
-import { UserProfileEntity } from 'src/modules/users/domain/entities/user-profiles.entity';
+import { AddCurrencyEntity } from '../../account/domain/entity/currency.entity';
+import { UserEntity } from '../../users/domain/entities/user.entity';
+import { AdminEntity } from '../../users/domain/entities/admin.entity';
+import { UserProfileEntity } from '../../users/domain/entities/user-profiles.entity';
 import { CurrencyRelationEntity } from '../domain/entity/currencyRelation.entity';
 import { CurrencyPnlPreviewDto } from '../domain/dto/CurrencyPnlPreview.dto';
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
-import { RedisService } from 'src/shared/modules/redis/redis.service';
-import { CurrencyStockEntity } from 'src/modules/currency/domain/entities/currency-stock.entity';
-import { CustomerCurrencyAccountEntity } from 'src/modules/currency/domain/entities/currencies-account.entity';
-import { AccountBalanceEntity } from 'src/modules/journal/domain/entity/account-balance.entity';
-import { AccountLedgerEntity } from 'src/modules/journal/domain/entity/account-ledger.entity';
+import { RedisService } from '../../../shared/modules/redis/redis.service';
+import { CurrencyStockEntity } from '../../currency/domain/entities/currency-stock.entity';
+import { CustomerCurrencyAccountEntity } from '../../currency/domain/entities/currencies-account.entity';
+import { AccountBalanceEntity } from '../../journal/domain/entity/account-balance.entity';
+import { AccountLedgerEntity } from '../../journal/domain/entity/account-ledger.entity';
 
 @Injectable()
 export class SalePurchaseService {

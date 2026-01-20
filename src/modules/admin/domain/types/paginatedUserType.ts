@@ -1,4 +1,4 @@
-import { CustomerEntity } from "src/modules/users/domain/entities/customer.entity";
+import { CustomerEntity } from "../../../users/domain/entities/customer.entity";
 export interface PaginatedUsersResponse {
     data: CustomerEntity[];
     total: number;

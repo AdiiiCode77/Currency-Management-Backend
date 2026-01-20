@@ -1,4 +1,4 @@
-import { UserTypeEntity } from 'src/modules/users/domain/entities/user-type.entity';
+import { UserTypeEntity } from '../modules/users/domain/entities/user-type.entity';
 import AppDataSource from '../../data-source';
 
 const seedUserTypes = async () => {

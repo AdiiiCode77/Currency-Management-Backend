@@ -1,6 +1,6 @@
 import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsUUID, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
+import { AddCurrencyEntity } from '../../../account/domain/entity/currency.entity';
 
 export enum PaymentType {
   JV_PAYMENT = 'JV Payment',

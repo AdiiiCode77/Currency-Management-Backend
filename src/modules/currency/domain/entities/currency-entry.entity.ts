@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { PaymentType, EntryType } from '../dto/create-currency-entry.dto';
 import { CustomerCurrencyAccountEntity } from './currencies-account.entity';
-import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
+import { AddCurrencyEntity } from '../../../account/domain/entity/currency.entity';
 
 @Entity('customer_currency_entries')
 export class CustomerCurrencyEntryEntity {

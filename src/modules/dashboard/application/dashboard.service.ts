@@ -7,8 +7,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { ChqInwardEntryEntity } from '../domain/entity/chq-inward-entry.entity';
 import { CreateChqInwardEntryDto } from '../domain/dto/create-chq-inward-entry.dto';
-import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
-import { AddChqRefBankEntity } from 'src/modules/account/domain/entity/add-chq-ref-bank.entity';
+import { CustomerAccountEntity } from '../../account/domain/entity/customer-account.entity';
+import { AddChqRefBankEntity } from '../../account/domain/entity/add-chq-ref-bank.entity';
 import { CreateChqOutwardEntryDto } from '../domain/dto/create-chq-outward-entry.dto';
 import { ChqOutwardEntryEntity } from '../domain/entity/chq-outward-entry.entity';
 

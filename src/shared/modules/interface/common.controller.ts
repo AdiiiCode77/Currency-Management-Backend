@@ -2,7 +2,7 @@ import { Controller, Get, Param, Query, Req, UseGuards, Delete, BadRequestExcept
 import { CommonService } from '../application/common.service';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../guards/jwt.guard';
-import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
+import { IsAdminGuard } from '../../guards/isAdmin.guard';
 import { Request } from 'express';
 
 @Controller('api/v1/customers')

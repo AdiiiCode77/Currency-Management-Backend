@@ -1,4 +1,4 @@
-import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
+import { AddCurrencyEntity } from '../../../account/domain/entity/currency.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,

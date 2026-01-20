@@ -4,7 +4,7 @@ import { ReportService } from '../application/report.service';
 import { Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
-import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
+import { IsAdminGuard } from '../../../shared/guards/isAdmin.guard';
 @ApiTags('reports')
 @Controller('reports')
 export class ReportController {

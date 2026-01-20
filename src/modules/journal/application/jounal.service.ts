@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { JournalEntryEntity } from '../domain/entity/journal-entry.entity';
-import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
+import { CustomerAccountEntity } from '../../account/domain/entity/customer-account.entity';
 import { CreateJournalEntryDto } from '../domain/dto/create-journal-entry.dto';
 import { BankPaymentEntryEntity } from '../domain/entity/bank-payment-entry.entity';
 import { CreateBankPaymentEntryDto } from '../domain/dto/create-bank-payment-entry.dto';
@@ -12,7 +12,7 @@ import { CashPaymentEntryEntity } from '../domain/entity/cash-payment-entry.enti
 import { CreateCashPaymentEntryDto } from '../domain/dto/create-cash-payment-entry.dto';
 import { CashReceivedEntryEntity } from '../domain/entity/cash-received-entry.entity';
 import { CreateCashReceivedEntryDto } from '../domain/dto/create-cash-received-entry.dto';
-import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
+import { BankAccountEntity } from '../../account/domain/entity/bank-account.entity';
 
 @Injectable()
 export class JournalService {

@@ -1,5 +1,5 @@
-import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
-import { AccountType } from 'src/modules/account/domain/enums/account-type.enum';
+import { AddCurrencyEntity } from '../../../account/domain/entity/currency.entity';
+import { AccountType } from '../../../account/domain/enums/account-type.enum';
 import {
     Entity,
     PrimaryGeneratedColumn,

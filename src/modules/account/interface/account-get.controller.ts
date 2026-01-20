@@ -1,10 +1,10 @@
 import { Controller, Get, UseGuards, Req, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import AccountService from '../application/account.service';
-import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
+import { IsAdminGuard } from '../../../shared/guards/isAdmin.guard';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
-import { PaginationDto } from 'src/shared/modules/dtos/pagination.dto';
+import { PaginationDto } from '../../../shared/modules/dtos/pagination.dto';
 
 @ApiTags('Accounts - Get')
 @ApiBearerAuth()

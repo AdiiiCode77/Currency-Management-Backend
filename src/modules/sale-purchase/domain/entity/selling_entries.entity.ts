@@ -1,6 +1,6 @@
-import { CurrencyAccountEntity } from 'src/modules/account/domain/entity/currency-account.entity';
-import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
-import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
+import { CurrencyAccountEntity } from '../../../account/domain/entity/currency-account.entity';
+import { AddCurrencyEntity } from '../../../account/domain/entity/currency.entity';
+import { CustomerAccountEntity } from '../../../account/domain/entity/customer-account.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,

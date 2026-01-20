@@ -17,7 +17,7 @@ import { AddCurrencyEntity } from './domain/entity/currency.entity';
 import { AddExpenseEntity } from './domain/entity/add-expense.entity';
 import { CurrencyAccountEntity } from './domain/entity/currency-account.entity';
 import { AccountGetController } from './interface/account-get.controller';
-import { RedisService } from 'src/shared/modules/redis/redis.service';
+import { RedisService } from '../../shared/modules/redis/redis.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([

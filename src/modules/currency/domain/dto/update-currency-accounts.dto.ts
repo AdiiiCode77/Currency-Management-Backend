@@ -1,6 +1,6 @@
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { AccountType } from 'src/modules/account/domain/enums/account-type.enum';
+import { AccountType } from '../../../account/domain/enums/account-type.enum';
 
 export class UpdateCustomerCurrencyAccountDto {
   @ApiProperty({

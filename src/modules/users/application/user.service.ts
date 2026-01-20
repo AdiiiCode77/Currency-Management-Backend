@@ -15,9 +15,9 @@ import bcrypt from 'bcrypt';
 import { UserProfileEntity } from '../domain/entities/user-profiles.entity';
 import { UserTypeEntity } from '../domain/entities/user-type.entity';
 import { CustomerEntity } from '../domain/entities/customer.entity';
-import { PaginatedUsersResponse } from 'src/modules/admin/domain/types/paginatedUserType';
-import { FilterUserDto } from 'src/modules/admin/domain/dtos/filter-user.dto';
-import { PaginationDto } from 'src/shared/modules/dtos/pagination.dto';
+import { PaginatedUsersResponse } from '../../admin/domain/types/paginatedUserType';
+import { FilterUserDto } from '../../admin/domain/dtos/filter-user.dto';
+import { PaginationDto } from '../../../shared/modules/dtos/pagination.dto';
 
 @Injectable()
 export class UserService {

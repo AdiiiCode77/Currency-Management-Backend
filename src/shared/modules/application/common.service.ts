@@ -7,15 +7,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { AddChqRefBankEntity } from 'src/modules/account/domain/entity/add-chq-ref-bank.entity';
-import { AddExpenseEntity } from 'src/modules/account/domain/entity/add-expense.entity';
-import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
-import { CurrencyAccountEntity } from 'src/modules/account/domain/entity/currency-account.entity';
-import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
-import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
-import { EmployeeAccountEntity } from 'src/modules/account/domain/entity/employee-account.entity';
-import { GeneralAccountEntity } from 'src/modules/account/domain/entity/general-account.entity';
-import { CustomerCurrencyAccountEntity } from 'src/modules/currency/domain/entities/currencies-account.entity';
+import { AddChqRefBankEntity } from '../../../modules/account/domain/entity/add-chq-ref-bank.entity';
+import { AddExpenseEntity } from '../../../modules/account/domain/entity/add-expense.entity';
+import { BankAccountEntity } from '../../../modules/account/domain/entity/bank-account.entity';
+import { CurrencyAccountEntity } from '../../../modules/account/domain/entity/currency-account.entity';
+import { AddCurrencyEntity } from '../../../modules/account/domain/entity/currency.entity';
+import { CustomerAccountEntity } from '../../../modules/account/domain/entity/customer-account.entity';
+import { EmployeeAccountEntity } from '../../../modules/account/domain/entity/employee-account.entity';
+import { GeneralAccountEntity } from '../../../modules/account/domain/entity/general-account.entity';
+import { CustomerCurrencyAccountEntity } from '../../../modules/currency/domain/entities/currencies-account.entity';
 import { Repository } from 'typeorm';
 import { RedisService } from '../redis/redis.service';
 

@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
+import { CustomerAccountEntity } from '../../../account/domain/entity/customer-account.entity';
 import { PaymentType } from '../enums/payment-type.enum';
 
 @Entity('journal_entries')

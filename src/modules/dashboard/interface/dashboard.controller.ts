@@ -14,7 +14,7 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
-import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
+import { IsAdminGuard } from '../../../shared/guards/isAdmin.guard';
 import { DashboardService } from '../application/dashboard.service';
 import { CreateChqInwardEntryDto } from '../domain/dto/create-chq-inward-entry.dto';
 import { Request } from 'express';

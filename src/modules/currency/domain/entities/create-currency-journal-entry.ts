@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 import { PaymentType } from '../dto/create-currency-entry.dto';
 import { CustomerCurrencyAccountEntity } from './currencies-account.entity';
-import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
+import { AddCurrencyEntity } from '../../../account/domain/entity/currency.entity';
 
 @Entity('journal_currency_entries')
 export class JournalCurrencyEntryEntity {

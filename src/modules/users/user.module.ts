@@ -8,8 +8,8 @@ import { CustomerEntity } from './domain/entities/customer.entity';
 import { JwtService } from '@nestjs/jwt';
 import { UserProfileEntity } from './domain/entities/user-profiles.entity';
 import { UserTypeEntity } from './domain/entities/user-type.entity';
-import { CommonService } from 'src/shared/modules/application/common.service';
-import { CommonController } from 'src/shared/modules/interface/common.controller';
+import { CommonService } from '../../shared/modules/application/common.service';
+import { CommonController } from '../../shared/modules/interface/common.controller';
 import { CustomerAccountEntity } from '../account/domain/entity/customer-account.entity';
 import { AddChqRefBankEntity } from '../account/domain/entity/add-chq-ref-bank.entity';
 import { GeneralAccountEntity } from '../account/domain/entity/general-account.entity';
@@ -19,7 +19,7 @@ import { CurrencyAccountEntity } from '../account/domain/entity/currency-account
 import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
 import { BankAccountEntity } from '../account/domain/entity/bank-account.entity';
 import { CustomerCurrencyAccountEntity } from '../currency/domain/entities/currencies-account.entity';
-import { RedisService } from 'src/shared/modules/redis/redis.service';
+import { RedisService } from '../../shared/modules/redis/redis.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([

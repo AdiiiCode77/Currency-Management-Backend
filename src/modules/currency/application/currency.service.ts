@@ -8,8 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { CustomerCurrencyAccountEntity } from '../domain/entities/currencies-account.entity';
 import { CustomerCreateCurrencyAccountDto } from '../domain/dto/create-currency-account.dto';
-import { buildPaginationResponse } from 'src/shared/utils/pagination.utils';
-import { PaginationDto } from 'src/shared/modules/dtos/pagination.dto';
+import { buildPaginationResponse } from '../../../shared/utils/pagination.utils';
+import { PaginationDto } from '../../../shared/modules/dtos/pagination.dto';
 import { UpdateCustomerCurrencyAccountDto } from '../domain/dto/update-currency-accounts.dto';
 import {
   CreateCurrencyEntryDto,
@@ -18,10 +18,10 @@ import {
 import { CustomerCurrencyEntryEntity } from '../domain/entities/currency-entry.entity';
 import { CreateMultipleCurrencyEntryDto } from '../domain/dto/multiple-currency-entry.dto';
 import { DailyBookDto } from '../domain/dto/daily-book.dto';
-import { AdminEntity } from 'src/modules/users/domain/entities/admin.entity';
-import { UserEntity } from 'src/modules/users/domain/entities/user.entity';
-import { AddCurrencyEntity } from 'src/modules/account/domain/entity/currency.entity';
-import { RedisService } from 'src/shared/modules/redis/redis.service';
+import { AdminEntity } from '../../users/domain/entities/admin.entity';
+import { UserEntity } from '../../users/domain/entities/user.entity';
+import { AddCurrencyEntity } from '../../account/domain/entity/currency.entity';
+import { RedisService } from '../../../shared/modules/redis/redis.service';
 import { CreateCurrencyJournalEntryDto } from '../domain/dto/create-currency-journal-entry.dto';
 import { JournalCurrencyEntryEntity } from '../domain/entities/create-currency-journal-entry';
 

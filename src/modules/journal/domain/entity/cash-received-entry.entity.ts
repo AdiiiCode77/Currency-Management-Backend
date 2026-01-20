@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
+import { CustomerAccountEntity } from '../../../account/domain/entity/customer-account.entity';
 
 @Entity('cash_received_entries')
 export class CashReceivedEntryEntity {

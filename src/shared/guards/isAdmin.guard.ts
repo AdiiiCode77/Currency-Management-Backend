@@ -6,7 +6,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { UserService } from 'src/modules/users/application/user.service';
+import { UserService } from '../../modules/users/application/user.service';
 import { Request } from 'express';
 
 @Injectable()

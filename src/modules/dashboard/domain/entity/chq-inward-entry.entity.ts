@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
-import { CustomerAccountEntity } from 'src/modules/account/domain/entity/customer-account.entity';
-import { AddChqRefBankEntity } from 'src/modules/account/domain/entity/add-chq-ref-bank.entity';
+import { CustomerAccountEntity } from '../../../account/domain/entity/customer-account.entity';
+import { AddChqRefBankEntity } from '../../../account/domain/entity/add-chq-ref-bank.entity';
 
 @Entity('chq_inward_entries')
 export class ChqInwardEntryEntity {

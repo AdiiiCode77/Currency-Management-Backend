@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
-import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
+import { IsAdminGuard } from '../../../shared/guards/isAdmin.guard';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -21,12 +21,12 @@ import {
 import { Request } from 'express';
 import { CurrencyAccountService } from '../application/currency.service';
 import { CustomerCreateCurrencyAccountDto } from '../domain/dto/create-currency-account.dto';
-import { PaginationDto } from 'src/shared/modules/dtos/pagination.dto';
+import { PaginationDto } from '../../../shared/modules/dtos/pagination.dto';
 import { UpdateCustomerCurrencyAccountDto } from '../domain/dto/update-currency-accounts.dto';
 import { CreateCurrencyEntryDto } from '../domain/dto/create-currency-entry.dto';
 import { CreateMultipleCurrencyEntryDto } from '../domain/dto/multiple-currency-entry.dto';
 import { DailyBookDto } from '../domain/dto/daily-book.dto';
-import { CreateJournalEntryDto } from 'src/modules/journal/domain/dto/create-journal-entry.dto';
+import { CreateJournalEntryDto } from '../../journal/domain/dto/create-journal-entry.dto';
 import { CreateCurrencyJournalEntryDto } from '../domain/dto/create-currency-journal-entry.dto';
 
 @ApiTags('Currency Accounts')

@@ -23,7 +23,7 @@ import {
 } from '../domain/types/auth-types';
 // import { MailService } from 'src/shared/modules/mail/mail.service';
 // import { generateOtp } from 'src/shared/helpers/generateOTP';
-import { OtpSignupEntity } from 'src/modules/otp/domain/entities/otp-signup.entity';
+import { OtpSignupEntity } from '../../otp/domain/entities/otp-signup.entity';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()

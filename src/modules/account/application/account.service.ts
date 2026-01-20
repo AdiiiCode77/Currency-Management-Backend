@@ -9,8 +9,8 @@ import { GeneralAccountEntity } from '../domain/entity/general-account.entity';
 import { CreateGeneralAccountDto } from '../domain/dto/create-general-account.dto';
 import { EmployeeAccountEntity } from '../domain/entity/employee-account.entity';
 import { CreateEmployeeAccountDto } from '../domain/dto/create-employee-account.dto';
-import { PaginationDto } from 'src/shared/modules/dtos/pagination.dto';
-import { buildPaginationResponse } from 'src/shared/utils/pagination.utils';
+import { PaginationDto } from '../../../shared/modules/dtos/pagination.dto';
+import { buildPaginationResponse } from '../../../shared/utils/pagination.utils';
 import { CreateAddExpenseDto } from '../domain/dto/create-add-expense.dto';
 import { AddExpenseEntity } from '../domain/entity/add-expense.entity';
 import { CreateAddChqRefBankDto } from '../domain/dto/create-add-chq-ref-bank.dto';
@@ -19,7 +19,7 @@ import { CreateAddCurrencyDto } from '../domain/dto/create-add-currency.dto';
 import { AddCurrencyEntity } from '../domain/entity/currency.entity';
 import { CreateCurrencyAccountDto } from '../domain/dto/create-currency-account.dto';
 import { CurrencyAccountEntity } from '../domain/entity/currency-account.entity';
-import { RedisService } from 'src/shared/modules/redis/redis.service';
+import { RedisService } from '../../../shared/modules/redis/redis.service';
 
 @Injectable()
 export default class AccountService {
