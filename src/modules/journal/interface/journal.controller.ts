@@ -4,7 +4,7 @@ import { Request } from 'express';
 import { JournalService } from '../application/jounal.service';
 import { CreateJournalEntryDto } from '../domain/dto/create-journal-entry.dto';
 import { CreateBankPaymentEntryDto } from '../domain/dto/create-bank-payment-entry.dto';
-import { JwtAuthGuard } from 'src/shared/guards/jwt.guard';
+import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
 import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
 import { CreateBankReceiverEntryDto } from '../domain/dto/reate-bank-receiver-entry.dto';
 import { CreateCashPaymentEntryDto } from '../domain/dto/create-cash-payment-entry.dto';

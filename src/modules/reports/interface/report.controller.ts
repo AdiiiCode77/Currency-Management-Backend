@@ -3,7 +3,7 @@ import { Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/com
 import { ReportService } from '../application/report.service';
 import { Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from 'src/shared/guards/jwt.guard';
+import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
 import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
 @ApiTags('reports')
 @Controller('reports')

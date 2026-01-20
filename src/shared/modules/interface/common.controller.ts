@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query, Req, UseGuards, Delete, BadRequestException } from '@nestjs/common';
 import { CommonService } from '../application/common.service';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from 'src/shared/guards/jwt.guard';
+import { JwtAuthGuard } from '../../guards/jwt.guard';
 import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
 import { Request } from 'express';
 

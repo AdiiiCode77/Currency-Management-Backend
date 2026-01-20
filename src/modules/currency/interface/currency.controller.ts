@@ -9,7 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/shared/guards/jwt.guard';
+import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
 import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
 import {
   ApiBearerAuth,

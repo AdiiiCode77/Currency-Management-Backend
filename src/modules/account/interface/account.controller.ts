@@ -16,7 +16,7 @@ import { CreateBankAccountDto } from '../domain/dto/create-bank-account.dto';
 import { CreateGeneralAccountDto } from '../domain/dto/create-general-account.dto';
 import { CreateEmployeeAccountDto } from '../domain/dto/create-employee-account.dto';
 import { PaginationDto } from 'src/shared/modules/dtos/pagination.dto';
-import { JwtAuthGuard } from 'src/shared/guards/jwt.guard';
+import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
 import { CreateAddExpenseDto } from '../domain/dto/create-add-expense.dto';
 import { CreateAddChqRefBankDto } from '../domain/dto/create-add-chq-ref-bank.dto';
 import { CreateAddCurrencyDto } from '../domain/dto/create-add-currency.dto';

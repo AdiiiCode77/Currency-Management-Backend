@@ -8,7 +8,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from '../application/user.service';
-import { JwtAuthGuard } from 'src/shared/guards/jwt.guard';
+import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
 import { UserProfileDTO } from '../domain/dto/profile.dto';
 import { ChangePasswordDTO } from '../domain/dto/password.dto';
 import {

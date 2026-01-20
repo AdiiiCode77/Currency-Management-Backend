@@ -12,7 +12,7 @@ import { SalePurchaseService } from '../application/entry.service';
 import { CreatePurchaseDto } from '../domain/dto/purchase-create.dto';
 import { CreateSellingDto } from '../domain/dto/selling-create.dto';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from 'src/shared/guards/jwt.guard';
+import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
 import { IsAdminGuard } from 'src/shared/guards/isAdmin.guard';
 import { Request } from 'express';
 import { CurrencyPnlPreviewDto } from '../domain/dto/CurrencyPnlPreview.dto';
