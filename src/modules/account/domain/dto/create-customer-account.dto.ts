@@ -15,7 +15,6 @@ export class CreateCustomerAccountDto {
     description: 'Customer contact number',
   })
   @IsString()
-  @IsNotEmpty()
   contact: string;
 
   @ApiProperty({
@@ -23,7 +22,6 @@ export class CreateCustomerAccountDto {
     description: 'Customer email address',
   })
   @IsEmail()
-  @IsNotEmpty()
   email: string;
 
   @ApiProperty({
@@ -31,7 +29,6 @@ export class CreateCustomerAccountDto {
     description: 'Customer full address',
   })
   @IsString()
-  @IsNotEmpty()
   address: string;
 
   @ApiProperty({
@@ -39,6 +36,5 @@ export class CreateCustomerAccountDto {
     description: 'Old account number (reference)',
   })
   @IsString()
-  @IsNotEmpty()
   oldAccountNumber: string;
 }

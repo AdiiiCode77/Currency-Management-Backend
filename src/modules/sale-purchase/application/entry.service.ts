@@ -24,6 +24,7 @@ import { CurrencyStockEntity } from '../../currency/domain/entities/currency-sto
 import { CustomerCurrencyAccountEntity } from '../../currency/domain/entities/currencies-account.entity';
 import { AccountBalanceEntity } from '../../journal/domain/entity/account-balance.entity';
 import { AccountLedgerEntity } from '../../journal/domain/entity/account-ledger.entity';
+import { GeneralLedgerService } from '../../journal/application/general-ledger.service';
 
 @Injectable()
 export class SalePurchaseService {
@@ -68,6 +69,8 @@ export class SalePurchaseService {
     private readonly dataSource: DataSource,
 
     private readonly redisService: RedisService,
+
+    private readonly generalLedgerService: GeneralLedgerService,
   ) {}
 
   private async updateCurrencyStock(
@@ -523,6 +526,49 @@ export class SalePurchaseService {
 
       await manager.save(PurchaseEntryEntity, entry);
 
+      // Log to General Ledger
+      await this.generalLedgerService.createLedgerEntries(
+        [
+          {
+            adminId,
+            transactionDate: dto.date,
+            accountId: customer.id,
+            accountName: customer.name,
+            accountType: 'CUSTOMER',
+            entryType: 'PURCHASE',
+            sourceEntryId: entry.id,
+            referenceNumber: entry.purchaseNumber?.toString(),
+            creditAmount: dto.amountPkr, // Customer account credited (we owe them)
+            debitAmount: 0,
+            currencyAmount: dto.amountCurrency,
+            currencyCode: currency.code,
+            exchangeRate: dto.rate,
+            description: dto.description,
+            contraAccountId: currency.id,
+            contraAccountName: currency.name,
+          },
+          {
+            adminId,
+            transactionDate: dto.date,
+            accountId: currency.id,
+            accountName: currency.name,
+            accountType: 'CURRENCY',
+            entryType: 'PURCHASE',
+            sourceEntryId: entry.id,
+            referenceNumber: entry.purchaseNumber?.toString(),
+            debitAmount: dto.amountPkr, // Currency account debited (we received currency)
+            creditAmount: 0,
+            currencyAmount: dto.amountCurrency,
+            currencyCode: currency.name,
+            exchangeRate: dto.rate,
+            description: dto.description,
+            contraAccountId: customer.id,
+            contraAccountName: customer.name,
+          },
+        ],
+        manager,
+      );
+
       await this.updateCurrencyStock(manager, adminId, currency.id);
 
       const redis = this.redisService.getClient();
@@ -625,6 +671,49 @@ export class SalePurchaseService {
 
       // 6️⃣ Save entry
       await manager.save(SellingEntryEntity, entry);
+
+      // Log to General Ledger
+      await this.generalLedgerService.createLedgerEntries(
+        [
+          {
+            adminId,
+            transactionDate: dto.date,
+            accountId: customer.id,
+            accountName: customer.name,
+            accountType: 'CUSTOMER',
+            entryType: 'SALE',
+            sourceEntryId: entry.id,
+            referenceNumber: entry.saleNumber?.toString(),
+            debitAmount: dto.amountPkr, // Customer account debited (they owe us)
+            creditAmount: 0,
+            currencyAmount: dto.amountCurrency,
+            currencyCode: currency.name,
+            exchangeRate: dto.rate,
+            description: dto.description,
+            contraAccountId: currency.id,
+            contraAccountName: currency.name,
+          },
+          {
+            adminId,
+            transactionDate: dto.date,
+            accountId: currency.id,
+            accountName: currency.name,
+            accountType: 'CURRENCY',
+            entryType: 'SALE',
+            sourceEntryId: entry.id,
+            referenceNumber: entry.saleNumber?.toString(),
+            creditAmount: dto.amountPkr, // Currency account credited (we gave currency)
+            debitAmount: 0,
+            currencyAmount: dto.amountCurrency,
+            currencyCode: currency.name,
+            exchangeRate: dto.rate,
+            description: dto.description,
+            contraAccountId: customer.id,
+            contraAccountName: customer.name,
+          },
+        ],
+        manager,
+      );
 
       await this.updateCurrencyStock(manager, adminId, currency.id);
 

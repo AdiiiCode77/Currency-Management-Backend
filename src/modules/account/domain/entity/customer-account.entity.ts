@@ -8,16 +8,16 @@ export class CustomerAccountEntity {
   @Column({ nullable: false })
   name: string;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true })
   contact: string;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true })
   email: string;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true })
   address: string;
 
-  @Column({ name: 'old_account_number', nullable: false })
+  @Column({ name: 'old_account_number', nullable: true })
   oldAccountNumber: string;
 
   @Column({ name: 'admin_id', type: 'uuid', nullable: false })

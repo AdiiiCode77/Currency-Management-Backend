@@ -13,6 +13,7 @@ import { CreateCashPaymentEntryDto } from '../domain/dto/create-cash-payment-ent
 import { CashReceivedEntryEntity } from '../domain/entity/cash-received-entry.entity';
 import { CreateCashReceivedEntryDto } from '../domain/dto/create-cash-received-entry.dto';
 import { BankAccountEntity } from '../../account/domain/entity/bank-account.entity';
+import { GeneralLedgerService } from './general-ledger.service';
 
 @Injectable()
 export class JournalService {
@@ -39,6 +40,8 @@ export class JournalService {
     private readonly cashReceivedRepo: Repository<CashReceivedEntryEntity>,
 
     private readonly dataSource: DataSource,
+
+    private readonly generalLedgerService: GeneralLedgerService,
   ) {}
 
   async createJournalEntry(dto: CreateJournalEntryDto, adminId: string) {
@@ -64,7 +67,43 @@ export class JournalService {
       adminId,
     });
 
-    return await this.journalRepo.save(entry);
+    const savedEntry = await this.journalRepo.save(entry);
+
+    // Log to General Ledger
+    await this.generalLedgerService.createLedgerEntries([
+      {
+        adminId,
+        transactionDate: dto.date,
+        accountId: crAccount.id,
+        accountName: crAccount.name,
+        accountType: 'CUSTOMER',
+        entryType: 'JOURNAL',
+        sourceEntryId: savedEntry.id,
+        creditAmount: dto.amount,
+        debitAmount: 0,
+        description: dto.description,
+        paymentType: dto.paymentType,
+        contraAccountId: drAccount.id,
+        contraAccountName: drAccount.name,
+      },
+      {
+        adminId,
+        transactionDate: dto.date,
+        accountId: drAccount.id,
+        accountName: drAccount.name,
+        accountType: 'CUSTOMER',
+        entryType: 'JOURNAL',
+        sourceEntryId: savedEntry.id,
+        debitAmount: dto.amount,
+        creditAmount: 0,
+        description: dto.description,
+        paymentType: dto.paymentType,
+        contraAccountId: crAccount.id,
+        contraAccountName: crAccount.name,
+      },
+    ]);
+
+    return savedEntry;
   }
 
   async getAllJournalEntries(adminId: string) {
@@ -100,7 +139,43 @@ export class JournalService {
       adminId,
     });
 
-    return await this.bankPaymentRepo.save(bankEntry);
+    const savedEntry = await this.bankPaymentRepo.save(bankEntry);
+
+    // Log to General Ledger
+    await this.generalLedgerService.createLedgerEntries([
+      {
+        adminId,
+        transactionDate: dto.date,
+        accountId: crAccount.id,
+        accountName: crAccount.bankName,
+        accountType: 'BANK',
+        entryType: 'BANK_PAYMENT',
+        sourceEntryId: savedEntry.id,
+        referenceNumber: dto.chqNo,
+        creditAmount: dto.amount,
+        debitAmount: 0,
+        description: dto.description,
+        contraAccountId: drAccount.id,
+        contraAccountName: drAccount.name,
+      },
+      {
+        adminId,
+        transactionDate: dto.date,
+        accountId: drAccount.id,
+        accountName: drAccount.name,
+        accountType: 'CUSTOMER',
+        entryType: 'BANK_PAYMENT',
+        sourceEntryId: savedEntry.id,
+        referenceNumber: dto.chqNo,
+        debitAmount: dto.amount,
+        creditAmount: 0,
+        description: dto.description,
+        contraAccountId: crAccount.id,
+        contraAccountName: crAccount.bankName,
+      },
+    ]);
+
+    return savedEntry;
   }
 
   async getAllBankPaymentEntries(adminId: string) {
@@ -166,7 +241,26 @@ export class JournalService {
       adminId,
     });
 
-    return await this.cashPaymentRepo.save(entry);
+    const savedEntry = await this.cashPaymentRepo.save(entry);
+
+    // Log to General Ledger - Cash payment (Dr: Customer, Cr: Cash)
+    await this.generalLedgerService.createLedgerEntries([
+      {
+        adminId,
+        transactionDate: dto.date,
+        accountId: drAccount.id,
+        accountName: drAccount.name,
+        accountType: 'CUSTOMER',
+        entryType: 'CASH_PAYMENT',
+        sourceEntryId: savedEntry.id,
+        debitAmount: dto.amount,
+        creditAmount: 0,
+        description: dto.description,
+        contraAccountName: dto.crAccount || 'Cash',
+      },
+    ]);
+
+    return savedEntry;
   }
 
   async getAllCashPaymentEntries(adminId: string) {

@@ -4,8 +4,10 @@ import { JournalEntryEntity } from './domain/entity/journal-entry.entity';
 import { CustomerEntity } from '../users/domain/entities/customer.entity';
 import { JournalService } from './application/jounal.service';
 import { BalanceCalculationService } from './application/balance-calculation.service';
+import { GeneralLedgerService } from './application/general-ledger.service';
 import { JournalController } from './interface/journal.controller';
 import { JournalGetController } from './interface/journal-get.controller';
+import { GeneralLedgerController } from './interface/general-ledger.controller';
 import { CreateCashPaymentEntryDto } from './domain/dto/create-cash-payment-entry.dto';
 import { CreateCashReceivedEntryDto } from './domain/dto/create-cash-received-entry.dto';
 import { CreateBankPaymentEntryDto } from './domain/dto/create-bank-payment-entry.dto';
@@ -17,6 +19,7 @@ import { BankPaymentEntryEntity } from './domain/entity/bank-payment-entry.entit
 import { BankReceiverEntryEntity } from './domain/entity/bank-receiver-entry.entity';
 import { AccountBalanceEntity } from './domain/entity/account-balance.entity';
 import { AccountLedgerEntity } from './domain/entity/account-ledger.entity';
+import { GeneralLedgerEntity } from './domain/entity/general-ledger.entity';
 import { CustomerAccountEntity } from '../account/domain/entity/customer-account.entity';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../users/application/user.service';
@@ -41,6 +44,7 @@ import { PurchaseEntryEntity } from '../sale-purchase/domain/entity/purchase_ent
       BankReceiverEntryEntity,
       AccountBalanceEntity,
       AccountLedgerEntity,
+      GeneralLedgerEntity,
       CustomerAccountEntity,
       UserEntity,
       UserProfileEntity,
@@ -53,8 +57,8 @@ import { PurchaseEntryEntity } from '../sale-purchase/domain/entity/purchase_ent
       PurchaseEntryEntity,
     ]),
   ],
-  providers: [JournalService, BalanceCalculationService, JwtService, UserService],
-  controllers: [JournalController, JournalGetController],
-  exports: [BalanceCalculationService],
+  providers: [JournalService, BalanceCalculationService, GeneralLedgerService, JwtService, UserService],
+  controllers: [JournalController, JournalGetController, GeneralLedgerController],
+  exports: [BalanceCalculationService, GeneralLedgerService],
 })
 export class JournalModule {}

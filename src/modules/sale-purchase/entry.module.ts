@@ -23,6 +23,8 @@ import { BankAccountEntity } from '../account/domain/entity/bank-account.entity'
 import { CustomerCurrencyAccountEntity } from '../currency/domain/entities/currencies-account.entity';
 import { AccountBalanceEntity } from '../journal/domain/entity/account-balance.entity';
 import { AccountLedgerEntity } from '../journal/domain/entity/account-ledger.entity';
+import { GeneralLedgerEntity } from '../journal/domain/entity/general-ledger.entity';
+import { GeneralLedgerService } from '../journal/application/general-ledger.service';
 
 @Module({
   imports: [
@@ -42,11 +44,12 @@ import { AccountLedgerEntity } from '../journal/domain/entity/account-ledger.ent
       BankAccountEntity,
       CustomerCurrencyAccountEntity,
       AccountBalanceEntity,
-      AccountLedgerEntity
+      AccountLedgerEntity,
+      GeneralLedgerEntity,
     ]),
   ],
   controllers: [SalePurchaseController],
-  providers: [SalePurchaseService, JwtService, UserService, RedisService],
+  providers: [SalePurchaseService, GeneralLedgerService, JwtService, UserService, RedisService],
   exports: [SalePurchaseService],
 })
 export class SalePurchaseModule {}
