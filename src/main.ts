@@ -46,8 +46,12 @@ async function bootstrap() {
     })
     .build();
 
-  const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('/api-docs', app, documentFactory);
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api-docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
 
   app.use('/api/v1/webhooks', express.raw({ type: 'application/json' }));
   app.use(express.urlencoded({ extended: false }));
