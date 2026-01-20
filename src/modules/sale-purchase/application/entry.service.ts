@@ -356,13 +356,6 @@ export class SalePurchaseService {
     }
   }
 
-  /**
-   * Update account balance for customer, bank, or currency accounts
-   * Recalculates totals from purchases and sales
-   * @param accountId - The account ID to update
-   * @param adminId - Admin ID for filtering
-   * @param accountType - Type of account (customer, bank, currency)
-   */
   private async updateAccountBalance(
     accountId: string,
     adminId: string,
@@ -383,20 +376,18 @@ export class SalePurchaseService {
         accountName = account.name;
         accountMetadata = account.contact || '';
 
-        // Get purchases (debit - money paid to supplier/customer)
         const purchases = await this.purchaseRepo
           .createQueryBuilder('p')
-          .where('p.customerAccountId = :accountId', { accountId })
-          .andWhere('p.adminId = :adminId', { adminId })
+          .where('p.customer_account_id = :accountId', { accountId })
+          .andWhere('p.admin_id = :adminId', { adminId })
           .select('SUM(p.amountPkr)', 'total')
           .getRawOne();
         totalCredit += Number(purchases?.total || 0);
 
-        // Get sales (credit - money received from customer)
         const sales = await this.sellingRepo
           .createQueryBuilder('s')
-          .where('s.customerAccountId = :accountId', { accountId })
-          .andWhere('s.adminId = :adminId', { adminId })
+          .where('s.customer_account_id = :accountId', { accountId })
+          .andWhere('s.admin_id = :adminId', { adminId })
           .select('SUM(s.amountPkr)', 'total')
           .getRawOne();
         totalDebit += Number(sales?.total || 0);
