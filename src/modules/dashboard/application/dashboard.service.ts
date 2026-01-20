@@ -11,6 +11,7 @@ import { CustomerAccountEntity } from '../../account/domain/entity/customer-acco
 import { AddChqRefBankEntity } from '../../account/domain/entity/add-chq-ref-bank.entity';
 import { CreateChqOutwardEntryDto } from '../domain/dto/create-chq-outward-entry.dto';
 import { ChqOutwardEntryEntity } from '../domain/entity/chq-outward-entry.entity';
+import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
 
 @Injectable()
 export class DashboardService {
@@ -27,6 +28,9 @@ export class DashboardService {
     @InjectRepository(AddChqRefBankEntity)
     private bankRefRepo: Repository<AddChqRefBankEntity>,
 
+    @InjectRepository(BankAccountEntity)
+    private bankAccountRepo: Repository<BankAccountEntity>,
+
     private dataSource: DataSource,
   ) {}
 
@@ -42,7 +46,7 @@ export class DashboardService {
       const toAcc = await this.accountRepo.findOne({
         where: { id: dto.toAccountId },
       });
-      const bankRef = await this.bankRefRepo.findOne({
+      const bankRef = await this.bankAccountRepo.findOne({
         where: { id: dto.chqBankRefId },
       });
 
@@ -76,7 +80,7 @@ export class DashboardService {
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw new InternalServerErrorException(
-        'Unable to create cheque inward entry. Please try again later.',
+        'Unable to create cheque inward entry. Please try again later.', error
       );
     } finally {
       await queryRunner.release();
@@ -176,7 +180,7 @@ export class DashboardService {
       const toAcc = await this.accountRepo.findOne({
         where: { id: dto.toAccountId },
       });
-      const bankRef = await this.bankRefRepo.findOne({
+      const bankRef = await this.bankAccountRepo.findOne({
         where: { id: dto.chqBankRefId },
       });
 

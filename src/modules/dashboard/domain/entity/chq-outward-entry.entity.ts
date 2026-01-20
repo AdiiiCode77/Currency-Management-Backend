@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { CustomerAccountEntity } from '../../../account/domain/entity/customer-account.entity';
 import { AddChqRefBankEntity } from '../../../account/domain/entity/add-chq-ref-bank.entity';
+import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
 
 @Entity('chq_outward_entries')
 export class ChqOutwardEntryEntity {
@@ -33,8 +34,8 @@ export class ChqOutwardEntryEntity {
     },})
   amount: number;
 
-  @ManyToOne(() => AddChqRefBankEntity, { eager: true })
-  chqBankRef: AddChqRefBankEntity;
+  @ManyToOne(() => BankAccountEntity, { eager: true })
+  chqBankRef: BankAccountEntity;
 
   @Column()
   chqNumber: string;

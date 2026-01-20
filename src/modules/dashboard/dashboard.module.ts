@@ -13,6 +13,7 @@ import { UserTypeEntity } from '../users/domain/entities/user-type.entity';
 import { AdminEntity } from '../users/domain/entities/admin.entity';
 import { CustomerEntity } from '../users/domain/entities/customer.entity';
 import { ChqOutwardEntryEntity } from './domain/entity/chq-outward-entry.entity';
+import { BankAccountEntity } from '../account/domain/entity/bank-account.entity';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { ChqOutwardEntryEntity } from './domain/entity/chq-outward-entry.entity'
       UserTypeEntity,
       AdminEntity,
       CustomerEntity,
-      ChqOutwardEntryEntity
+      ChqOutwardEntryEntity,
+      BankAccountEntity
     ]),
   ],
   controllers: [DashboardController],
