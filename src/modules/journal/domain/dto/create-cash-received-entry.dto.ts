@@ -20,6 +20,5 @@ export class CreateCashReceivedEntryDto {
 
   @ApiProperty({ example: 'Cash received from customer', description: 'Description of the transaction' })
   @IsString()
-  @IsNotEmpty()
   description: string;
 }

@@ -316,12 +316,6 @@ export class SalePurchaseService {
     };
   }
 
-  /**
-   * Validate that the account ID exists in at least one of the three account types
-   * @param accountId - The account ID to validate
-   * @param adminId - Admin ID for filtering
-   * @returns Account object with type information
-   */
   private async validateAccountExists(
     accountId: string,
     adminId: string,
@@ -948,9 +942,6 @@ export class SalePurchaseService {
     });
   }
 
-  /**
-   * Update selling entry by ID
-   */
   async updateSelling(
     entryId: string,
     dto: UpdateSellingDto,

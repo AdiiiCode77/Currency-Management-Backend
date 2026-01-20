@@ -32,7 +32,7 @@ export class BankReceiverEntryEntity {
     },})
   amount: number;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   branchCode: string;
   
   @Column({ name: 'admin_id', type: 'uuid', nullable: false })
