@@ -56,27 +56,27 @@ export class AuthController {
     return this.authService.checkPhoneExistence(phone);
   }
 
-  @Post('/signup/first-step')
-  @ApiOperation({
-    summary: 'Signup Step 1: Collect user info and send OTP',
-    description: 'Validates user data, sends OTP to email.',
-  })
-  @ApiBody({
-    description: 'User signup initial data',
-    schema: {
-      example: {
-        email: 'test@example.com',
-      },
-    },
-  })
-  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
-  @ApiResponse({ status: 400, description: 'Validation failed' })
-  @ApiResponse({ status: 409, description: 'User already exists' })
-  async signupFirstStep(@Body() body: ISignupFirstStep) {
-    return await this.authService.signupUserAndSendOtp({
-      email: body.email.toLowerCase(),
-    });
-  }
+  // @Post('/signup/first-step')
+  // @ApiOperation({
+  //   summary: 'Signup Step 1: Collect user info and send OTP',
+  //   description: 'Validates user data, sends OTP to email.',
+  // })
+  // @ApiBody({
+  //   description: 'User signup initial data',
+  //   schema: {
+  //     example: {
+  //       email: 'test@example.com',
+  //     },
+  //   },
+  // })
+  // @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  // @ApiResponse({ status: 400, description: 'Validation failed' })
+  // @ApiResponse({ status: 409, description: 'User already exists' })
+  // async signupFirstStep(@Body() body: ISignupFirstStep) {
+  //   return await this.authService.signupUserAndSendOtp({
+  //     email: body.email.toLowerCase(),
+  //   });
+  // }
 
   @Post('/signup/final-step')
   @ApiOperation({

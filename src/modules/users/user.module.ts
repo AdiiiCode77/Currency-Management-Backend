@@ -8,7 +8,6 @@ import { CustomerEntity } from './domain/entities/customer.entity';
 import { JwtService } from '@nestjs/jwt';
 import { UserProfileEntity } from './domain/entities/user-profiles.entity';
 import { UserTypeEntity } from './domain/entities/user-type.entity';
-import { MailModule } from 'src/shared/modules/mail/mail.module';
 import { CommonService } from 'src/shared/modules/application/common.service';
 import { CommonController } from 'src/shared/modules/interface/common.controller';
 import { CustomerAccountEntity } from '../account/domain/entity/customer-account.entity';
@@ -23,7 +22,6 @@ import { CustomerCurrencyAccountEntity } from '../currency/domain/entities/curre
 import { RedisService } from 'src/shared/modules/redis/redis.service';
 @Module({
   imports: [
-    MailModule,
     TypeOrmModule.forFeature([
       UserEntity,
       UserProfileEntity,

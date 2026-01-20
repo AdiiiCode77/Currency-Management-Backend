@@ -1,7 +1,6 @@
 //auth.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { MailModule } from 'src/shared/modules/mail/mail.module';
 import { UserModule } from '../users/user.module';
 import AccountService from './application/account.service';
 import { AccountController } from './interface/account.controller';
@@ -21,7 +20,6 @@ import { AccountGetController } from './interface/account-get.controller';
 import { RedisService } from 'src/shared/modules/redis/redis.service';
 @Module({
   imports: [
-    MailModule,
     TypeOrmModule.forFeature([
       BankAccountEntity,
       CustomerEntity,

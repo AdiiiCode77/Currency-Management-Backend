@@ -6,7 +6,6 @@ import { OtpEntity } from '../domain/entities/otp.entity';
 import { generateOtp } from '../../../shared/helpers/generateOTP';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
-import { MailService } from 'src/shared/modules/mail/mail.service';
 import {
   IResetPassword,
   ISendOtp,
@@ -19,7 +18,6 @@ export class OtpService {
     @InjectRepository(UserEntity)
     private userRepository: Repository<UserEntity>,
     @InjectRepository(OtpEntity) private otpRepository: Repository<OtpEntity>,
-    private mailService: MailService,
   ) {}
 
   private async findUserByEmailOrPhone(email?: string, phone?: string) {
@@ -60,9 +58,7 @@ export class OtpService {
       code: otp,
     });
 
-    if (body?.email) {
-      this.mailService.sendOtpEmail(user.email, user.name, otp);
-    }
+    // Mail service removed - OTP sent successfully (without email)
 
     return {
       message: `OTP sent successfully to ${body.email || body.phone}`,

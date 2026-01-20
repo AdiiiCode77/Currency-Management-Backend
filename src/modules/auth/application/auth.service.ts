@@ -21,8 +21,8 @@ import {
   ISignupFirstStep,
   ISignupSecondStep,
 } from '../domain/types/auth-types';
-import { MailService } from 'src/shared/modules/mail/mail.service';
-import { generateOtp } from 'src/shared/helpers/generateOTP';
+// import { MailService } from 'src/shared/modules/mail/mail.service';
+// import { generateOtp } from 'src/shared/helpers/generateOTP';
 import { OtpSignupEntity } from 'src/modules/otp/domain/entities/otp-signup.entity';
 import * as bcrypt from 'bcrypt';
 
@@ -39,7 +39,7 @@ export class AuthService {
     @InjectRepository(AdminEntity) private adminEntity: Repository<AdminEntity>,
     @InjectDataSource(AppDataSource)
     private readonly dataSource: typeof AppDataSource,
-    private readonly mailService: MailService,
+    // private readonly mailService: MailService,
     @InjectRepository(OtpSignupEntity)
     private otpSignupEntity: Repository<OtpSignupEntity>,
   ) {}
@@ -58,45 +58,45 @@ export class AuthService {
     return { exists: false };
   }
 
-  async signupUserAndSendOtp(
-    body: ISignupFirstStep
-  ) {
-    const email = body.email.toLowerCase();
+  // async signupUserAndSendOtp(
+  //   body: ISignupFirstStep
+  // ) {
+  //   const email = body.email.toLowerCase();
 
-    // Check for existing email
-    const existingUserEmail = await this.userRepository.findOne({
-      where: { email },
-    });
+  //   // Check for existing email
+  //   const existingUserEmail = await this.userRepository.findOne({
+  //     where: { email },
+  //   });
 
-    if (existingUserEmail) {
-      throw new ConflictException(['An account with this email already exists. Please use a different email or try logging in.']);
-    }
+  //   if (existingUserEmail) {
+  //     throw new ConflictException(['An account with this email already exists. Please use a different email or try logging in.']);
+  //   }
 
-    if (!email) {
-      throw new BadRequestException(['Email is required to send OTP']);
-    }
-    const otp = generateOtp();
-    await this.otpSignupEntity.delete({ email });
+  //   if (!email) {
+  //     throw new BadRequestException(['Email is required to send OTP']);
+  //   }
+  //   const otp = generateOtp();
+  //   await this.otpSignupEntity.delete({ email });
 
-    // 6. Save new OTP
-    await this.otpSignupEntity.save({
-      id: uuidV4(),
-      email,
-      code: otp,
-    });
+  //   // 6. Save new OTP
+  //   await this.otpSignupEntity.save({
+  //     id: uuidV4(),
+  //     email,
+  //     code: otp,
+  //   });
 
-    try {
-      await this.mailService.sendOtpEmail(email,'User', otp);
-    } catch (error) {
-      throw new BadRequestException(['Failed to send OTP email']);
-    }
+  //   try {
+  //     await this.mailService.sendOtpEmail(email,'User', otp);
+  //   } catch (error) {
+  //     throw new BadRequestException(['Failed to send OTP email']);
+  //   }
 
-    return {
-      message: 'OTP sent to email address',
-      redirectTo: 'otp-verification',
-      email,
-    };
-  }
+  //   return {
+  //     message: 'OTP sent to email address',
+  //     redirectTo: 'otp-verification',
+  //     email,
+  //   };
+  // }
 
   async verifyOtpAndCreateUser(body: ISignupSecondStep) {
     const email = body.email.toLowerCase();

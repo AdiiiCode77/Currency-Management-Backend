@@ -22,7 +22,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { MailService } from 'src/shared/modules/mail/mail.service';
 import type { Request } from 'express';
 
 @ApiTags('Users')
@@ -30,7 +29,6 @@ import type { Request } from 'express';
 export class UserController {
   constructor(
     private readonly userService: UserService,
-    private readonly mailerService: MailService,
   ) {}
 
   @Patch('/')

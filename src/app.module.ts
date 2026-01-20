@@ -2,9 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PrometheusModule } from '@willsoto/nestjs-prometheus';
-import { MailerModule } from '@nestjs-modules/mailer';
-import { join } from 'path';
-import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { AuthModule } from './modules/auth/auth.module';
 import { OtpModule } from './modules/otp/otp.module';
 import { LoggerModule } from './modules/logger/logger.module';
@@ -63,30 +60,6 @@ import { ReportsModule } from './modules/reports/reports.module';
     // NotificationModule,
     PrometheusModule.register({
       path: '/metrics',
-    }),
-    MailerModule.forRoot({
-      transport: {
-        service: process.env.MAIL_SERVICE,
-        host: process.env.MAIL_HOST,
-        port: process.env.MAIL_PORT,
-        auth: {
-          user: process.env.MAIL_USER,
-          pass: process.env.MAIL_PASS,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-      },
-      defaults: {
-        from: 'Nest Starter',
-      },
-      template: {
-        dir: join(__dirname, '..', '..', 'src', 'shared', 'templates', 'mail'),
-        adapter: new HandlebarsAdapter(),
-        options: {
-          strict: true,
-        },
-      },
     }),
     LoggerModule,
     RedisModule
