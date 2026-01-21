@@ -19,6 +19,7 @@ import { AddCurrencyEntity } from '../account/domain/entity/currency.entity';
 import { CurrencyRelationEntity } from './domain/entity/currencyRelation.entity';
 import { RedisService } from '../../shared/modules/redis/redis.service';
 import { CurrencyStockEntity } from '../currency/domain/entities/currency-stock.entity';
+import { CurrencyBalanceEntity } from '../currency/domain/entities/currency-balance.entity';
 import { BankAccountEntity } from '../account/domain/entity/bank-account.entity';
 import { CustomerCurrencyAccountEntity } from '../currency/domain/entities/currencies-account.entity';
 import { AccountBalanceEntity } from '../journal/domain/entity/account-balance.entity';
@@ -41,6 +42,7 @@ import { GeneralLedgerService } from '../journal/application/general-ledger.serv
       AddCurrencyEntity,
       CurrencyRelationEntity,
       CurrencyStockEntity,
+      CurrencyBalanceEntity,
       BankAccountEntity,
       CustomerCurrencyAccountEntity,
       AccountBalanceEntity,

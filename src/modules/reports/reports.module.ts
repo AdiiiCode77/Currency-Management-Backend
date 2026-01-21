@@ -23,6 +23,7 @@ import { CashPaymentEntryEntity } from '../journal/domain/entity/cash-payment-en
 import { CashReceivedEntryEntity } from '../journal/domain/entity/cash-received-entry.entity';
 import { AccountBalanceEntity } from '../journal/domain/entity/account-balance.entity';
 import { AccountLedgerEntity } from '../journal/domain/entity/account-ledger.entity';
+import { GeneralLedgerEntity } from '../journal/domain/entity/general-ledger.entity';
 import { CustomerAccountEntity } from '../account/domain/entity/customer-account.entity';
 import { BankAccountEntity } from '../account/domain/entity/bank-account.entity';
 import { GeneralAccountEntity } from '../account/domain/entity/general-account.entity';
@@ -47,6 +48,7 @@ import { GeneralAccountEntity } from '../account/domain/entity/general-account.e
       CashReceivedEntryEntity,
       AccountBalanceEntity,
       AccountLedgerEntity,
+      GeneralLedgerEntity,
       CustomerAccountEntity,
       BankAccountEntity,
       GeneralAccountEntity,

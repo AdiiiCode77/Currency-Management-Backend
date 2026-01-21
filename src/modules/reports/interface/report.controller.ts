@@ -40,6 +40,85 @@ export class ReportController {
       );
     }
 
+    @Get('currency-ledger/:currencyId')
+    @ApiBearerAuth()
+    @UseGuards(JwtAuthGuard, IsAdminGuard)
+    @ApiOperation({ summary: 'Get Currency Ledger with Pagination (from General Ledger)' })
+    @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
+    @ApiQuery({ name: 'dateFrom', required: false, type: String, description: 'Start date (YYYY-MM-DD)' })
+    @ApiQuery({ name: 'dateTo', required: false, type: String, description: 'End date (YYYY-MM-DD)' })
+    @ApiOkResponse({
+      description: 'Currency ledger data grouped by date with pagination',
+      schema: {
+        type: 'object',
+        properties: {
+          currencyId: { type: 'string' },
+          currencyName: { type: 'string' },
+          currencyCode: { type: 'string' },
+          data: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                date: { type: 'string' },
+                entries: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      transactionDate: { type: 'string' },
+                      entryType: { type: 'string' },
+                      referenceNumber: { type: 'string' },
+                      description: { type: 'string' },
+                      debit: { type: 'number' },
+                      credit: { type: 'number' },
+                      currencyAmount: { type: 'number' },
+                      exchangeRate: { type: 'number' },
+                      contraAccountName: { type: 'string' },
+                      runningBalance: { type: 'number' },
+                    },
+                  },
+                },
+                totalDebit: { type: 'number' },
+                totalCredit: { type: 'number' },
+                closingBalance: { type: 'number' },
+              },
+            },
+          },
+          totalDirhamBalance: { type: 'number' },
+          avgRate: { type: 'number' },
+          pagination: {
+            type: 'object',
+            properties: {
+              page: { type: 'number' },
+              limit: { type: 'number' },
+              totalPages: { type: 'number' },
+              totalRecords: { type: 'number' },
+            },
+          },
+        },
+      },
+    })
+    async getCurrencyLedger(
+      @Req() req: Request,
+      @Param('currencyId') currencyId: string,
+      @Query('page') page?: number,
+      @Query('limit') limit?: number,
+      @Query('dateFrom') dateFrom?: string,
+      @Query('dateTo') dateTo?: string,
+    ): Promise<any> {
+      return this.reportService.getCurrencyLedger(
+        req.adminId,
+        currencyId,
+        page || 1,
+        limit || 10,
+        dateFrom,
+        dateTo,
+      );
+    }
+
     @Get('currency-stocks')
     @ApiBearerAuth()
     @UseGuards(JwtAuthGuard, IsAdminGuard)

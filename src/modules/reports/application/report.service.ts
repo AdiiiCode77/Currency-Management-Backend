@@ -15,6 +15,7 @@ import { CashPaymentEntryEntity } from '../../journal/domain/entity/cash-payment
 import { CashReceivedEntryEntity } from '../../journal/domain/entity/cash-received-entry.entity';
 import { AccountBalanceEntity } from '../../journal/domain/entity/account-balance.entity';
 import { AccountLedgerEntity } from '../../journal/domain/entity/account-ledger.entity';
+import { GeneralLedgerEntity } from '../../journal/domain/entity/general-ledger.entity';
 import { CustomerAccountEntity } from '../../account/domain/entity/customer-account.entity';
 import { BankAccountEntity } from '../../account/domain/entity/bank-account.entity';
 import { GeneralAccountEntity } from '../../account/domain/entity/general-account.entity';
@@ -33,6 +34,11 @@ import {
   CurrencyIncomeStatement,
   CurrencyIncomeStatementSummary,
 } from '../domain/dto/income-statement.dto';
+import {
+  CurrencyLedgerResponse,
+  CurrencyLedgerByDate,
+  CurrencyLedgerEntry,
+} from '../domain/dto/currency-ledger.dto';
 
 @Injectable()
 export class ReportService {
@@ -88,6 +94,9 @@ export class ReportService {
 
     @InjectRepository(AccountLedgerEntity)
     private readonly accountLedgerRepository: Repository<AccountLedgerEntity>,
+
+    @InjectRepository(GeneralLedgerEntity)
+    private readonly generalLedgerRepository: Repository<GeneralLedgerEntity>,
 
     @InjectRepository(CustomerAccountEntity)
     private readonly customerAccountRepository: Repository<CustomerAccountEntity>,
@@ -1936,6 +1945,176 @@ export class ReportService {
       }
       throw new InternalServerErrorException(
         'Unable to fetch customer currency sale report. Please try again later.',
+      );
+    }
+  }
+
+  /**
+   * Get Currency Ledger Report from General Ledger with Pagination
+   * Groups data by date and calculates running balance and average rate
+   * Uses AccountBalanceEntity for pre-calculated balance data
+   */
+  async getCurrencyLedger(
+    adminId: string,
+    currencyId: string,
+    page: number = 1,
+    limit: number = 10,
+    dateFrom?: string,
+    dateTo?: string,
+  ): Promise<CurrencyLedgerResponse> {
+    try {
+      if (!currencyId) {
+        throw new BadRequestException('Currency ID is required');
+      }
+
+      // Build cache key
+      const cacheKey = `currencyLedger:${adminId}:${currencyId}:${page}:${limit}:${dateFrom || 'all'}:${dateTo || 'all'}`;
+      const cached = await this.redisService.getValue(cacheKey);
+      
+      if (cached) {
+        this.logger.debug(`✅ Currency Ledger cache HIT`);
+        return typeof cached === 'string' ? JSON.parse(cached) : cached;
+      }
+
+      this.logger.debug(`🛑 Currency Ledger cache MISS`);
+
+      // Get currency details
+      const currency = await this.currencyRepository.findOne({
+        where: { id: currencyId },
+      });
+
+      if (!currency) {
+        throw new BadRequestException('Currency not found');
+      }
+
+      // Get account balance for this currency from AccountBalanceEntity
+      const accountBalance = await this.accountBalanceRepository.findOne({
+        where: {
+          adminId,
+          accountId: currencyId,
+          accountType: 'CURRENCY',
+        },
+      });
+
+      // Build query for general ledger
+      const queryBuilder = this.generalLedgerRepository
+        .createQueryBuilder('gl')
+        .where('gl.adminId = :adminId', { adminId })
+        .andWhere('gl.accountId = :currencyId', { currencyId })
+        .andWhere('gl.accountType = :accountType', { accountType: 'CURRENCY' })
+        .orderBy('gl.transactionDate', 'ASC')
+        .addOrderBy('gl.createdAt', 'ASC');
+
+      // Apply date filters if provided
+      if (dateFrom) {
+        queryBuilder.andWhere('gl.transactionDate >= :dateFrom', { dateFrom });
+      }
+      if (dateTo) {
+        queryBuilder.andWhere('gl.transactionDate <= :dateTo', { dateTo });
+      }
+
+      // Get total count for pagination
+      const totalRecords = await queryBuilder.getCount();
+      const totalPages = Math.ceil(totalRecords / limit);
+
+      // Get paginated results
+      const ledgerEntries = await queryBuilder
+        .skip((page - 1) * limit)
+        .take(limit)
+        .getMany();
+
+      // Process entries and group by date
+      const groupedByDate: Map<string, CurrencyLedgerEntry[]> = new Map();
+      let runningBalance = accountBalance ? Number(accountBalance.balance) : 0;
+      let totalDirhamAmount = 0;
+      let totalRateSum = 0;
+      let rateCount = 0;
+
+      ledgerEntries.forEach((entry) => {
+        const dateKey = this.toISODateString(entry.transactionDate);
+        
+        // Calculate running balance (Debit increases, Credit decreases for currency)
+        runningBalance += (entry.debitAmount || 0) - (entry.creditAmount || 0);
+        
+        // Calculate total dirham balance
+        totalDirhamAmount += (entry.currencyAmount || 0);
+        
+        // Sum exchange rates for average calculation
+        if (entry.exchangeRate && entry.exchangeRate > 0) {
+          totalRateSum += entry.exchangeRate;
+          rateCount++;
+        }
+
+        const ledgerEntry: CurrencyLedgerEntry = {
+          id: entry.id,
+          transactionDate: dateKey,
+          entryType: entry.entryType,
+          referenceNumber: entry.referenceNumber || '',
+          description: entry.description || '',
+          debit: entry.debitAmount || 0,
+          credit: entry.creditAmount || 0,
+          currencyAmount: entry.currencyAmount || 0,
+          exchangeRate: entry.exchangeRate || 0,
+          contraAccountName: entry.contraAccountName || '',
+          runningBalance: Math.round(runningBalance * 100) / 100,
+        };
+
+        if (!groupedByDate.has(dateKey)) {
+          groupedByDate.set(dateKey, []);
+        }
+        groupedByDate.get(dateKey)!.push(ledgerEntry);
+      });
+
+      // Build response data grouped by date
+      const data: CurrencyLedgerByDate[] = Array.from(groupedByDate.entries()).map(([date, entries]) => {
+        const totalDebit = entries.reduce((sum, e) => sum + e.debit, 0);
+        const totalCredit = entries.reduce((sum, e) => sum + e.credit, 0);
+        const closingBalance = entries[entries.length - 1]?.runningBalance || 0;
+
+        return {
+          date,
+          entries,
+          totalDebit: Math.round(totalDebit * 100) / 100,
+          totalCredit: Math.round(totalCredit * 100) / 100,
+          closingBalance: Math.round(closingBalance * 100) / 100,
+        };
+      });
+
+      // Calculate average rate from all ledger entries
+      const avgRate = rateCount > 0 ? Math.round((totalRateSum / rateCount) * 100) / 100 : 0;
+
+      // Use account balance for total balance if no ledger entries in the filtered date range
+      const finalBalance = ledgerEntries.length > 0 
+        ? Math.round(runningBalance * 100) / 100 
+        : (accountBalance ? Math.round(Number(accountBalance.balance) * 100) / 100 : 0);
+
+      const response: CurrencyLedgerResponse = {
+        currencyId: currency.id,
+        currencyName: currency.name,
+        currencyCode: currency.code,
+        data,
+        totalDirhamBalance: Math.round(totalDirhamAmount * 100) / 100,
+        currentBalance: finalBalance,
+        avgRate,
+        pagination: {
+          page,
+          limit,
+          totalPages,
+          totalRecords,
+        },
+      };
+
+      // Cache the response
+      await this.redisService.setValue(cacheKey, JSON.stringify(response), this.CACHE_DURATION);
+      
+      return response;
+    } catch (error) {
+      this.logger.error(`Error fetching currency ledger:`, error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        'Unable to fetch currency ledger. Please try again later.',
       );
     }
   }

@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -23,6 +24,7 @@ import { CurrencyPnlPreviewDto } from '../domain/dto/CurrencyPnlPreview.dto';
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 import { RedisService } from '../../../shared/modules/redis/redis.service';
 import { CurrencyStockEntity } from '../../currency/domain/entities/currency-stock.entity';
+import { CurrencyBalanceEntity } from '../../currency/domain/entities/currency-balance.entity';
 import { CustomerCurrencyAccountEntity } from '../../currency/domain/entities/currencies-account.entity';
 import { AccountBalanceEntity } from '../../journal/domain/entity/account-balance.entity';
 import { AccountLedgerEntity } from '../../journal/domain/entity/account-ledger.entity';
@@ -30,6 +32,8 @@ import { GeneralLedgerService } from '../../journal/application/general-ledger.s
 
 @Injectable()
 export class SalePurchaseService {
+  private readonly logger = new Logger(SalePurchaseService.name);
+
   constructor(
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     @InjectRepository(PurchaseEntryEntity)
@@ -67,6 +71,9 @@ export class SalePurchaseService {
 
     @InjectRepository(AccountLedgerEntity)
     private readonly accountLedgerRepo: Repository<AccountLedgerEntity>,
+
+    @InjectRepository(CurrencyBalanceEntity)
+    private readonly currencyBalanceRepo: Repository<CurrencyBalanceEntity>,
 
     private readonly dataSource: DataSource,
 
@@ -122,6 +129,96 @@ export class SalePurchaseService {
     }
 
     return { totalPkr, totalCurrency, rate };
+  }
+
+  /**
+   * Update or create currency balance record
+   * Maintains one record per currency per admin with average rate from sales and purchases
+   */
+  private async updateCurrencyBalance(
+    manager: EntityManager,
+    adminId: string,
+    currencyId: string,
+  ) {
+    try {
+      // Get total from currency relations (this is the current balance)
+      const balances = await manager
+        .createQueryBuilder(CurrencyRelationEntity, 'cr')
+        .select('SUM(cr.balance)', 'totalCurrency')
+        .addSelect('SUM(cr.balancePkr)', 'totalPkr')
+        .where('cr.currencyId = :currencyId', { currencyId })
+        .andWhere('cr.adminId = :adminId', { adminId })
+        .getRawOne();
+
+      const balanceCurrency = +balances?.totalCurrency || 0;
+      const balancePkr = +balances?.totalPkr || 0;
+
+      // Get average rate from sales
+      const salesAvg = await manager
+        .createQueryBuilder(SellingEntryEntity, 's')
+        .select('AVG(s.rate)', 'avgRate')
+        .addSelect('COUNT(s.id)', 'count')
+        .where('s.adminId = :adminId', { adminId })
+        .andWhere('s.fromCurrencyId = :currencyId', { currencyId })
+        .getRawOne();
+
+      // Get average rate from purchases
+      const purchaseAvg = await manager
+        .createQueryBuilder(PurchaseEntryEntity, 'p')
+        .select('AVG(p.rate)', 'avgRate')
+        .addSelect('COUNT(p.id)', 'count')
+        .where('p.adminId = :adminId', { adminId })
+        .andWhere('p.currencyDrId = :currencyId', { currencyId })
+        .getRawOne();
+
+      const salesRate = +salesAvg?.avgRate || 0;
+      const salesCount = +salesAvg?.count || 0;
+      const purchaseRate = +purchaseAvg?.avgRate || 0;
+      const purchaseCount = +purchaseAvg?.count || 0;
+
+      // Calculate weighted average rate
+      let avgRate = 0;
+      if (salesCount + purchaseCount > 0) {
+        avgRate = ((salesRate * salesCount) + (purchaseRate * purchaseCount)) / (salesCount + purchaseCount);
+      }
+
+      // Find existing record or create new one
+      const existing = await manager.findOne(CurrencyBalanceEntity, {
+        where: { adminId, currencyId },
+      });
+
+      if (existing) {
+        // Update existing record
+        await manager.update(
+          CurrencyBalanceEntity,
+          { id: existing.id },
+          {
+            balancePkr,
+            balanceCurrency,
+            avgRate: Math.round(avgRate * 100) / 100, // Round to 2 decimal places
+            totalSales: salesCount,
+            totalPurchases: purchaseCount,
+          }
+        );
+      } else {
+        // Create new record
+        const newBalance = manager.create(CurrencyBalanceEntity, {
+          adminId,
+          currencyId,
+          balancePkr,
+          balanceCurrency,
+          avgRate: Math.round(avgRate * 100) / 100,
+          totalSales: salesCount,
+          totalPurchases: purchaseCount,
+        });
+        await manager.save(newBalance);
+      }
+
+      return { balanceCurrency, balancePkr, avgRate };
+    } catch (error) {
+      this.logger.error(`Error updating currency balance: ${error.message}`);
+      // Don't throw error, just log it to prevent transaction rollback
+    }
   }
 
   async getCurrencyPnlPreview(adminId: string, dto: CurrencyPnlPreviewDto) {
@@ -567,6 +664,9 @@ export class SalePurchaseService {
 
       await this.updateCurrencyStock(manager, adminId, currency.id);
 
+      // Update currency balance summary table
+      await this.updateCurrencyBalance(manager, adminId, currency.id);
+
       const redis = this.redisService.getClient();
 
       await redis.del(`dailyBooksReport:${adminId}:${dto.date}`);
@@ -712,6 +812,9 @@ export class SalePurchaseService {
       );
 
       await this.updateCurrencyStock(manager, adminId, currency.id);
+
+      // Update currency balance summary table
+      await this.updateCurrencyBalance(manager, adminId, currency.id);
 
       const redis = this.redisService.getClient();
 
@@ -924,8 +1027,10 @@ export class SalePurchaseService {
 
       // 9. Update currency stock
       await this.updateCurrencyStock(manager, adminId, currency.id);
+      await this.updateCurrencyBalance(manager, adminId, currency.id);
       if (oldCurrencyId !== newCurrencyId) {
         await this.updateCurrencyStock(manager, adminId, oldCurrencyId);
+        await this.updateCurrencyBalance(manager, adminId, oldCurrencyId);
       }
 
       // 10. Clear cache
@@ -1112,8 +1217,10 @@ export class SalePurchaseService {
 
       // 9. Update currency stock
       await this.updateCurrencyStock(manager, adminId, currency.id);
+      await this.updateCurrencyBalance(manager, adminId, currency.id);
       if (oldCurrencyId !== newCurrencyId) {
         await this.updateCurrencyStock(manager, adminId, oldCurrencyId);
+        await this.updateCurrencyBalance(manager, adminId, oldCurrencyId);
       }
 
       // 10. Clear cache
