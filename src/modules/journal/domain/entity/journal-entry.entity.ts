@@ -38,10 +38,10 @@ export class JournalEntryEntity {
     },})
   amount: number;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, default: '' })
   description: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', nullable: true, default: '' })
   chqNo: string;
 
   @Column({ name: 'admin_id', type: 'uuid', nullable: false })

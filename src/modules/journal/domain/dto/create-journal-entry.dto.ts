@@ -26,11 +26,9 @@ export class CreateJournalEntryDto {
 
   @ApiProperty({ example: 'Monthly rent payment' })
   @IsOptional()
-  @IsString()
   description?: string;
 
   @ApiProperty({ example: 'CHQ-00123' })
   @IsOptional()
-  @IsString()
   chqNo?: string;
 }
