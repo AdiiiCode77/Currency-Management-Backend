@@ -39,6 +39,11 @@ import {
   CurrencyLedgerByDate,
   CurrencyLedgerEntry,
 } from '../domain/dto/currency-ledger.dto';
+import {
+  AccountLedgerResponse,
+  AccountLedgerEntry,
+  AccountLedgerTotals,
+} from '../domain/dto/account-ledger.dto';
 
 @Injectable()
 export class ReportService {
@@ -2117,6 +2122,241 @@ export class ReportService {
         'Unable to fetch currency ledger. Please try again later.',
       );
     }
+  }
+
+  /**
+   * Get Account Ledger for any account type (Customer, Bank, Currency, General)
+   * Returns all transactions with running balance and comprehensive totals
+   */
+  async getAccountLedger(
+    adminId: string,
+    accountId: string,
+    page: number = 1,
+    limit: number = 50,
+    dateFrom?: string,
+    dateTo?: string,
+  ): Promise<AccountLedgerResponse> {
+    try {
+      if (!accountId) {
+        throw new BadRequestException('Account ID is required');
+      }
+
+      // Build cache key
+      const cacheKey = `accountLedger:${adminId}:${accountId}:${page}:${limit}:${dateFrom || 'all'}:${dateTo || 'all'}`;
+      const cached = await this.redisService.getValue(cacheKey);
+      
+      if (cached) {
+        this.logger.debug(`✅ Account Ledger cache HIT`);
+        return typeof cached === 'string' ? JSON.parse(cached) : cached;
+      }
+
+      this.logger.debug(`🛑 Account Ledger cache MISS`);
+
+      // Find account in various account tables to determine type and name
+      let accountName = '';
+      let accountType: 'CUSTOMER' | 'BANK' | 'CURRENCY' | 'GENERAL' = 'CUSTOMER';
+      let accountFound = false;
+
+      // Try Customer Account
+      const customerAccount = await this.customerAccountRepository.findOne({
+        where: { id: accountId },
+      });
+
+      if (customerAccount) {
+        accountName = customerAccount.name;
+        accountType = 'CUSTOMER';
+        accountFound = true;
+      } else {
+        // Try Bank Account
+        const bankAccount = await this.bankAccountRepository.findOne({
+          where: { id: accountId },
+        });
+
+        if (bankAccount) {
+          accountName = bankAccount.bankName;
+          accountType = 'BANK';
+          accountFound = true;
+        } else {
+          // Try General Account
+          const generalAccount = await this.generalAccountRepository.findOne({
+            where: { id: accountId },
+          });
+
+          if (generalAccount) {
+            accountName = generalAccount.name;
+            accountType = 'GENERAL';
+            accountFound = true;
+          } else {
+            // Try to get from general ledger (for currency accounts or other types)
+            const firstEntry = await this.generalLedgerRepository.findOne({
+              where: { accountId, adminId },
+              order: { transactionDate: 'ASC' },
+            });
+
+            if (firstEntry) {
+              accountName = firstEntry.accountName;
+              accountType = firstEntry.accountType;
+              accountFound = true;
+            }
+          }
+        }
+      }
+
+      if (!accountFound) {
+        throw new BadRequestException('Account not found');
+      }
+
+      // Build query for general ledger
+      const queryBuilder = this.generalLedgerRepository
+        .createQueryBuilder('gl')
+        .where('gl.adminId = :adminId', { adminId })
+        .andWhere('gl.accountId = :accountId', { accountId })
+        .orderBy('gl.transactionDate', 'ASC')
+        .addOrderBy('gl.createdAt', 'ASC');
+
+      // Apply date filters if provided
+      if (dateFrom) {
+        queryBuilder.andWhere('gl.transactionDate >= :dateFrom', { dateFrom });
+      }
+      if (dateTo) {
+        queryBuilder.andWhere('gl.transactionDate <= :dateTo', { dateTo });
+      }
+
+      // Get total count for pagination
+      const totalRecords = await queryBuilder.getCount();
+      const totalPages = Math.ceil(totalRecords / limit);
+
+      // Get paginated results
+      const ledgerEntries = await queryBuilder
+        .skip((page - 1) * limit)
+        .take(limit)
+        .getMany();
+
+      // Process entries and calculate running balance
+      let runningBalance = 0;
+      let totalCredit = 0;
+      let totalDebit = 0;
+      let totalChqInward = 0;
+      let totalChqOutward = 0;
+
+      // If we're on page 1 and no date filter, start from 0
+      // Otherwise, get the balance up to the start of this page
+      if (page > 1 || dateFrom) {
+        const previousQuery = this.generalLedgerRepository
+          .createQueryBuilder('gl')
+          .select('COALESCE(SUM(gl.debitAmount), 0) - COALESCE(SUM(gl.creditAmount), 0)', 'balance')
+          .where('gl.adminId = :adminId', { adminId })
+          .andWhere('gl.accountId = :accountId', { accountId });
+
+        if (dateFrom && page === 1) {
+          previousQuery.andWhere('gl.transactionDate < :dateFrom', { dateFrom });
+        } else if (page > 1) {
+          const skipCount = (page - 1) * limit;
+          const previousEntries = await this.generalLedgerRepository
+            .createQueryBuilder('gl')
+            .where('gl.adminId = :adminId', { adminId })
+            .andWhere('gl.accountId = :accountId', { accountId })
+            .orderBy('gl.transactionDate', 'ASC')
+            .addOrderBy('gl.createdAt', 'ASC')
+            .take(skipCount)
+            .getMany();
+
+          previousEntries.forEach(entry => {
+            runningBalance += (entry.debitAmount || 0) - (entry.creditAmount || 0);
+          });
+        }
+      }
+
+      const entries: AccountLedgerEntry[] = ledgerEntries.map((entry) => {
+        const debit = entry.debitAmount || 0;
+        const credit = entry.creditAmount || 0;
+
+        // Update running balance
+        runningBalance += debit - credit;
+
+        // Update totals
+        totalDebit += debit;
+        totalCredit += credit;
+
+        // Track cheque inward/outward
+        if (entry.entryType === 'CHQ_INWARD') {
+          totalChqInward += debit || credit;
+        } else if (entry.entryType === 'CHQ_OUTWARD') {
+          totalChqOutward += debit || credit;
+        }
+
+        return {
+          date: this.toISODateString(entry.transactionDate),
+          number: entry.referenceNumber || entry.id.substring(0, 8),
+          paymentType: this.formatPaymentType(entry.entryType),
+          narration: entry.description || entry.contraAccountName || '',
+          debit: Math.round(debit * 100) / 100,
+          credit: Math.round(credit * 100) / 100,
+          balance: Math.round(runningBalance * 100) / 100,
+          referenceNumber: entry.referenceNumber,
+        };
+      });
+
+      // Calculate final balance and total
+      const balance = Math.round(runningBalance * 100) / 100;
+      const total = Math.round((totalDebit + totalCredit) * 100) / 100;
+
+      const totals: AccountLedgerTotals = {
+        totalCredit: Math.round(totalCredit * 100) / 100,
+        totalDebit: Math.round(totalDebit * 100) / 100,
+        totalChqInward: Math.round(totalChqInward * 100) / 100,
+        totalChqOutward: Math.round(totalChqOutward * 100) / 100,
+        balance,
+        total,
+      };
+
+      const response: AccountLedgerResponse = {
+        accountId,
+        accountName,
+        accountType,
+        entries,
+        totals,
+        pagination: {
+          page,
+          limit,
+          totalPages,
+          totalRecords,
+        },
+      };
+
+      // Cache the response
+      await this.redisService.setValue(cacheKey, JSON.stringify(response), this.CACHE_DURATION);
+      
+      return response;
+    } catch (error) {
+      this.logger.error(`Error fetching account ledger:`, error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        'Unable to fetch account ledger. Please try again later.',
+      );
+    }
+  }
+
+  /**
+   * Format payment type for display
+   */
+  private formatPaymentType(entryType: string): string {
+    const typeMap: Record<string, string> = {
+      'SALE': 'Sale',
+      'PURCHASE': 'Purchase',
+      'JOURNAL': 'Journal Entry',
+      'BANK_PAYMENT': 'Bank Payment',
+      'BANK_RECEIPT': 'Bank Receipt',
+      'CASH_PAYMENT': 'Cash Payment',
+      'CASH_RECEIPT': 'Cash Receipt',
+      'CHQ_INWARD': 'Cheque Inward',
+      'CHQ_OUTWARD': 'Cheque Outward',
+      'CURRENCY_ENTRY': 'Currency Entry',
+      'CURRENCY_JOURNAL': 'Currency Journal',
+    };
+    return typeMap[entryType] || entryType;
   }
 
 }

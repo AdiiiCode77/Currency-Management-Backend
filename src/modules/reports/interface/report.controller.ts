@@ -2,9 +2,10 @@
 import { Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ReportService } from '../application/report.service';
 import { Request } from 'express';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiOkResponse, ApiTags, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
 import { IsAdminGuard } from '../../../shared/guards/isAdmin.guard';
+import { GetAccountLedgerDto } from '../domain/dto/account-ledger.dto';
 @ApiTags('reports')
 @Controller('reports')
 export class ReportController {
@@ -35,85 +36,6 @@ export class ReportController {
       return this.reportService.ledgersCurrencyReport(
         req.adminId,
         currency,
-        dateFrom,
-        dateTo,
-      );
-    }
-
-    @Get('currency-ledger/:currencyId')
-    @ApiBearerAuth()
-    @UseGuards(JwtAuthGuard, IsAdminGuard)
-    @ApiOperation({ summary: 'Get Currency Ledger with Pagination (from General Ledger)' })
-    @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
-    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
-    @ApiQuery({ name: 'dateFrom', required: false, type: String, description: 'Start date (YYYY-MM-DD)' })
-    @ApiQuery({ name: 'dateTo', required: false, type: String, description: 'End date (YYYY-MM-DD)' })
-    @ApiOkResponse({
-      description: 'Currency ledger data grouped by date with pagination',
-      schema: {
-        type: 'object',
-        properties: {
-          currencyId: { type: 'string' },
-          currencyName: { type: 'string' },
-          currencyCode: { type: 'string' },
-          data: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                date: { type: 'string' },
-                entries: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      id: { type: 'string' },
-                      transactionDate: { type: 'string' },
-                      entryType: { type: 'string' },
-                      referenceNumber: { type: 'string' },
-                      description: { type: 'string' },
-                      debit: { type: 'number' },
-                      credit: { type: 'number' },
-                      currencyAmount: { type: 'number' },
-                      exchangeRate: { type: 'number' },
-                      contraAccountName: { type: 'string' },
-                      runningBalance: { type: 'number' },
-                    },
-                  },
-                },
-                totalDebit: { type: 'number' },
-                totalCredit: { type: 'number' },
-                closingBalance: { type: 'number' },
-              },
-            },
-          },
-          totalDirhamBalance: { type: 'number' },
-          avgRate: { type: 'number' },
-          pagination: {
-            type: 'object',
-            properties: {
-              page: { type: 'number' },
-              limit: { type: 'number' },
-              totalPages: { type: 'number' },
-              totalRecords: { type: 'number' },
-            },
-          },
-        },
-      },
-    })
-    async getCurrencyLedger(
-      @Req() req: Request,
-      @Param('currencyId') currencyId: string,
-      @Query('page') page?: number,
-      @Query('limit') limit?: number,
-      @Query('dateFrom') dateFrom?: string,
-      @Query('dateTo') dateTo?: string,
-    ): Promise<any> {
-      return this.reportService.getCurrencyLedger(
-        req.adminId,
-        currencyId,
-        page || 1,
-        limit || 10,
         dateFrom,
         dateTo,
       );
@@ -518,6 +440,86 @@ export class ReportController {
         currencyId,
         from,
         to,
+      );
+    }
+
+    @Get('account-ledger/:accountId')
+    @ApiBearerAuth()
+    @UseGuards(JwtAuthGuard, IsAdminGuard)
+    @ApiOperation({ 
+      summary: 'Get Account Ledger for any Account Type',
+      description: 'Returns ledger entries for Customer, Bank, Currency, or General Account with running balance and totals'
+    })
+    @ApiParam({
+      name: 'accountId',
+      description: 'ID of the account (can be Customer, Bank, Currency, or General account)',
+      type: String,
+    })
+    @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+    @ApiQuery({ name: 'limit', required: false, type: Number, example: 50 })
+    @ApiQuery({ name: 'dateFrom', required: false, type: String, example: '2026-01-01' })
+    @ApiQuery({ name: 'dateTo', required: false, type: String, example: '2026-01-31' })
+    @ApiOkResponse({
+      description: 'Account ledger with all transactions and totals',
+      schema: {
+        type: 'object',
+        properties: {
+          accountId: { type: 'string' },
+          accountName: { type: 'string' },
+          accountType: { type: 'string', enum: ['CUSTOMER', 'BANK', 'CURRENCY', 'GENERAL'] },
+          entries: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                date: { type: 'string', example: '2026-01-15' },
+                number: { type: 'string', example: 'INV-001' },
+                paymentType: { type: 'string', example: 'Sale' },
+                narration: { type: 'string', example: 'Sale to customer' },
+                debit: { type: 'number', example: 1000 },
+                credit: { type: 'number', example: 0 },
+                balance: { type: 'number', example: 1000 },
+              },
+            },
+          },
+          totals: {
+            type: 'object',
+            properties: {
+              totalCredit: { type: 'number' },
+              totalDebit: { type: 'number' },
+              totalChqInward: { type: 'number' },
+              totalChqOutward: { type: 'number' },
+              balance: { type: 'number' },
+              total: { type: 'number' },
+            },
+          },
+          pagination: {
+            type: 'object',
+            properties: {
+              page: { type: 'number' },
+              limit: { type: 'number' },
+              totalPages: { type: 'number' },
+              totalRecords: { type: 'number' },
+            },
+          },
+        },
+      },
+    })
+    async getAccountLedger(
+      @Req() req: Request,
+      @Param('accountId') accountId: string,
+      @Query('page') page?: number,
+      @Query('limit') limit?: number,
+      @Query('dateFrom') dateFrom?: string,
+      @Query('dateTo') dateTo?: string,
+    ): Promise<any> {
+      return this.reportService.getAccountLedger(
+        req.adminId,
+        accountId,
+        page || 1,
+        limit || 50,
+        dateFrom,
+        dateTo,
       );
     }
 

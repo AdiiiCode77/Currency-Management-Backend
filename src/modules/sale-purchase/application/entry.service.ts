@@ -82,6 +82,50 @@ export class SalePurchaseService {
     private readonly generalLedgerService: GeneralLedgerService,
   ) {}
 
+  /**
+   * Clear currency ledger cache for a specific currency
+   * This should be called whenever a purchase or selling entry is created/updated
+   */
+  private async clearCurrencyLedgerCache(
+    adminId: string,
+    currencyId: string,
+  ): Promise<void> {
+    try {
+      const redis = this.redisService.getClient();
+      // Clear all cache keys for this currency ledger (all pages and date ranges)
+      const pattern = `currencyLedger:${adminId}:${currencyId}:*`;
+      const keys = await redis.keys(pattern);
+      if (keys && keys.length > 0) {
+        await redis.del(...keys);
+        this.logger.debug(`🗑️ Cleared ${keys.length} currency ledger cache keys for currency ${currencyId}`);
+      }
+    } catch (error) {
+      this.logger.error('Error clearing currency ledger cache:', error);
+    }
+  }
+
+  /**
+   * Clear account ledger cache for a specific account
+   * This should be called whenever any transaction affects an account
+   */
+  private async clearAccountLedgerCache(
+    adminId: string,
+    accountId: string,
+  ): Promise<void> {
+    try {
+      const redis = this.redisService.getClient();
+      // Clear all cache keys for this account ledger (all pages and date ranges)
+      const pattern = `accountLedger:${adminId}:${accountId}:*`;
+      const keys = await redis.keys(pattern);
+      if (keys && keys.length > 0) {
+        await redis.del(...keys);
+        this.logger.debug(`🗑️ Cleared ${keys.length} account ledger cache keys for account ${accountId}`);
+      }
+    } catch (error) {
+      this.logger.error('Error clearing account ledger cache:', error);
+    }
+  }
+
   private async updateCurrencyStock(
     manager: EntityManager,
     adminId: string,
@@ -673,6 +717,13 @@ export class SalePurchaseService {
 
       await redis.del(`dailyBuyingReport:${adminId}:${dto.date}`);
 
+      // Clear currency ledger cache
+      await this.clearCurrencyLedgerCache(adminId, currency.id);
+
+      // Clear account ledger cache for affected accounts
+      await this.clearAccountLedgerCache(adminId, currency.id);
+      await this.clearAccountLedgerCache(adminId, dto.customerAccountId);
+
       // Update account balance for the customer/bank/currency account
       if (accountValidation.type) {
         await this.updateAccountBalance(
@@ -819,6 +870,13 @@ export class SalePurchaseService {
       const redis = this.redisService.getClient();
 
       await redis.del(`dailyBooksReport:${adminId}:${dto.date}`);
+
+      // Clear currency ledger cache
+      await this.clearCurrencyLedgerCache(adminId, currency.id);
+
+      // Clear account ledger cache for affected accounts
+      await this.clearAccountLedgerCache(adminId, currency.id);
+      await this.clearAccountLedgerCache(adminId, dto.customerAccountId);
 
       // Update account balance for the customer/bank/currency account
       if (accountValidation.type) {
@@ -1039,6 +1097,19 @@ export class SalePurchaseService {
       await redis.del(`dailyBooksReport:${adminId}:${dateKey}`);
       await redis.del(`dailyBuyingReport:${adminId}:${dateKey}`);
 
+      // Clear currency ledger cache for the currency
+      await this.clearCurrencyLedgerCache(adminId, newCurrencyId);
+      if (oldCurrencyId !== newCurrencyId) {
+        await this.clearCurrencyLedgerCache(adminId, oldCurrencyId);
+      }
+
+      // Clear account ledger cache for affected accounts
+      await this.clearAccountLedgerCache(adminId, newCurrencyId);
+      await this.clearAccountLedgerCache(adminId, dto.customerAccountId || entry.customerAccountId);
+      if (oldCurrencyId !== newCurrencyId) {
+        await this.clearAccountLedgerCache(adminId, oldCurrencyId);
+      }
+
       // Return updated entry
       return await manager.findOne(PurchaseEntryEntity, {
         where: { id: entryId },
@@ -1227,6 +1298,19 @@ export class SalePurchaseService {
       const redis = this.redisService.getClient();
       const dateKey = dto.date || entry.date;
       await redis.del(`dailyBooksReport:${adminId}:${dateKey}`);
+
+      // Clear currency ledger cache for the currency
+      await this.clearCurrencyLedgerCache(adminId, newCurrencyId);
+      if (oldCurrencyId !== newCurrencyId) {
+        await this.clearCurrencyLedgerCache(adminId, oldCurrencyId);
+      }
+
+      // Clear account ledger cache for affected accounts
+      await this.clearAccountLedgerCache(adminId, newCurrencyId);
+      await this.clearAccountLedgerCache(adminId, dto.customerAccountId || entry.customerAccount.id);
+      if (oldCurrencyId !== newCurrencyId) {
+        await this.clearAccountLedgerCache(adminId, oldCurrencyId);
+      }
 
       // Return updated entry
       return await manager.findOne(SellingEntryEntity, {

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsEmail } from 'class-validator';
+import { IsString, IsNotEmpty, IsEmail, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateCustomerAccountDto {
@@ -15,6 +15,7 @@ export class CreateCustomerAccountDto {
     description: 'Customer contact number',
   })
   @IsString()
+  @IsOptional()
   contact: string;
 
   @ApiProperty({
@@ -22,13 +23,16 @@ export class CreateCustomerAccountDto {
     description: 'Customer email address',
   })
   @IsEmail()
+  @IsOptional()
   email: string;
 
+  
   @ApiProperty({
     example: '123 Street, Lahore',
     description: 'Customer full address',
   })
   @IsString()
+  @IsOptional()
   address: string;
 
   @ApiProperty({
@@ -36,5 +40,6 @@ export class CreateCustomerAccountDto {
     description: 'Old account number (reference)',
   })
   @IsString()
+  @IsOptional()
   oldAccountNumber: string;
 }
