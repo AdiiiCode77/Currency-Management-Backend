@@ -12,7 +12,7 @@ export class GeneralAccountEntity {
   @Column({ nullable: false })
   name: string;
 
-  @Column({ name: 'account_information', nullable: false })
+  @Column({ name: 'account_information', nullable: true, default: '' })
   accountInformation: string;
 
   @Column({ name: 'admin_id', type: 'uuid', nullable: false })

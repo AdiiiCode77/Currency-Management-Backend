@@ -14,7 +14,6 @@ export class CreateCustomerAccountDto {
     example: '+923001234567',
     description: 'Customer contact number',
   })
-  @IsString()
   @IsOptional()
   contact: string;
 
@@ -22,16 +21,14 @@ export class CreateCustomerAccountDto {
     example: 'john.doe@example.com',
     description: 'Customer email address',
   })
-  @IsEmail()
   @IsOptional()
   email: string;
 
-  
+
   @ApiProperty({
     example: '123 Street, Lahore',
     description: 'Customer full address',
   })
-  @IsString()
   @IsOptional()
   address: string;
 
@@ -39,7 +36,6 @@ export class CreateCustomerAccountDto {
     example: 'ACC-987654',
     description: 'Old account number (reference)',
   })
-  @IsString()
   @IsOptional()
   oldAccountNumber: string;
 }

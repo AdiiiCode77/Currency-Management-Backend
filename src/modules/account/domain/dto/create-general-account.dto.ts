@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { AccountType } from '../enums/account-type.enum';
 
 export class CreateGeneralAccountDto {
@@ -18,7 +18,6 @@ export class CreateGeneralAccountDto {
   name: string;
 
   @ApiProperty({ example: 'Used for daily small business transactions' })
-  @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   accountInformation: string;
 }

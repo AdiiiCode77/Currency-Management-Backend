@@ -9,6 +9,5 @@ export class CreateAddExpenseDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsString()
   description?: string;
 }

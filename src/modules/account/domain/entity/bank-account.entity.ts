@@ -14,13 +14,13 @@ export class BankAccountEntity {
   @Column({ name: 'account_number', nullable: false })
   accountNumber: string;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true, default: '' })
   contact: string;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true, default: '' })
   address: string;
 
-  @Column({ name: 'old_account_id', nullable: false })
+  @Column({ name: 'old_account_id', nullable: true, default: '' })
   oldAccountId: string;
 
   @Column({ name: 'admin_id', type: 'uuid', nullable: false })

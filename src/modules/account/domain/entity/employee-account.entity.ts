@@ -8,22 +8,22 @@ export class EmployeeAccountEntity {
   @Column({ nullable: false })
   name: string;
 
-  @Column({ name: 'father_name', nullable: false })
+  @Column({ name: 'father_name', nullable: true })
   fatherName: string;
 
-  @Column({ nullable: false, unique: true })
+  @Column({ nullable: true })
   cnic: string;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true })
   contact: string;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true })
   address: string;
 
-  @Column({ name: 'monthly_salary', type: 'decimal', precision: 30, scale: 2, nullable: false })
+  @Column({ name: 'monthly_salary', type: 'decimal', precision: 30, scale: 2, nullable: true })
   monthlySalary: number;
 
-  @Column({ name: 'joining_date', type: 'date', nullable: false })
+  @Column({ name: 'joining_date', type: 'date', nullable: true })
   joiningDate: Date;
 
   @Column({ name: 'admin_id', type: 'uuid', nullable: false })

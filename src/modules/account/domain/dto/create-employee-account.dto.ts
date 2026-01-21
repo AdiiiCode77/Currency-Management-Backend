@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsNumber, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsDateString, IsOptional } from 'class-validator';
 
 export class CreateEmployeeAccountDto {
   @ApiProperty({ example: 'Ali Ahmed' })
@@ -8,32 +8,26 @@ export class CreateEmployeeAccountDto {
   name: string;
 
   @ApiProperty({ example: 'Muhammad Ahmed' })
-  @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   fatherName: string;
 
   @ApiProperty({ example: '35202-1234567-8' })
-  @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   cnic: string;
 
   @ApiProperty({ example: '+923001234567' })
-  @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   contact: string;
 
   @ApiProperty({ example: '123 Main Street, Lahore' })
-  @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   address: string;
 
   @ApiProperty({ example: 50000.00 })
-  @IsNumber()
-  @IsNotEmpty()
+  @IsOptional()
   monthlySalary: number;
 
   @ApiProperty({ example: '2024-10-01' })
-  @IsDateString()
-  @IsNotEmpty()
+  @IsOptional()
   joiningDate: string;
 }
