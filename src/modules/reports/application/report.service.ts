@@ -2159,7 +2159,7 @@ export class ReportService {
 
       // Try Customer Account
       const customerAccount = await this.customerAccountRepository.findOne({
-        where: { id: accountId },
+        where: { id: accountId, adminId },
       });
 
       if (customerAccount) {
@@ -2169,7 +2169,7 @@ export class ReportService {
       } else {
         // Try Bank Account
         const bankAccount = await this.bankAccountRepository.findOne({
-          where: { id: accountId },
+          where: { id: accountId, adminId },
         });
 
         if (bankAccount) {
@@ -2177,26 +2177,37 @@ export class ReportService {
           accountType = 'BANK';
           accountFound = true;
         } else {
-          // Try General Account
-          const generalAccount = await this.generalAccountRepository.findOne({
-            where: { id: accountId },
+          // Try Currency Account
+          const currencyAccount = await this.currencyRepository.findOne({
+            where: { id: accountId, adminId },
           });
 
-          if (generalAccount) {
-            accountName = generalAccount.name;
-            accountType = 'GENERAL';
+          if (currencyAccount) {
+            accountName = currencyAccount.name;
+            accountType = 'CURRENCY';
             accountFound = true;
           } else {
-            // Try to get from general ledger (for currency accounts or other types)
-            const firstEntry = await this.generalLedgerRepository.findOne({
-              where: { accountId, adminId },
-              order: { transactionDate: 'ASC' },
+            // Try General Account
+            const generalAccount = await this.generalAccountRepository.findOne({
+              where: { id: accountId, adminId },
             });
 
-            if (firstEntry) {
-              accountName = firstEntry.accountName;
-              accountType = firstEntry.accountType;
+            if (generalAccount) {
+              accountName = generalAccount.name;
+              accountType = 'GENERAL';
               accountFound = true;
+            } else {
+              // Try to get from general ledger (as fallback for any account type)
+              const firstEntry = await this.generalLedgerRepository.findOne({
+                where: { accountId, adminId },
+                order: { transactionDate: 'ASC' },
+              });
+
+              if (firstEntry) {
+                accountName = firstEntry.accountName;
+                accountType = firstEntry.accountType;
+                accountFound = true;
+              }
             }
           }
         }
@@ -2238,7 +2249,6 @@ export class ReportService {
       let totalDebit = 0;
       let totalChqInward = 0;
       let totalChqOutward = 0;
-
       // If we're on page 1 and no date filter, start from 0
       // Otherwise, get the balance up to the start of this page
       if (page > 1 || dateFrom) {
@@ -2271,14 +2281,11 @@ export class ReportService {
         const debit = entry.debitAmount || 0;
         const credit = entry.creditAmount || 0;
 
-        // Update running balance
         runningBalance += debit - credit;
 
-        // Update totals
         totalDebit += debit;
         totalCredit += credit;
 
-        // Track cheque inward/outward
         if (entry.entryType === 'CHQ_INWARD') {
           totalChqInward += debit || credit;
         } else if (entry.entryType === 'CHQ_OUTWARD') {
@@ -2297,7 +2304,6 @@ export class ReportService {
         };
       });
 
-      // Calculate final balance and total
       const balance = Math.round(runningBalance * 100) / 100;
       const total = Math.round((totalDebit + totalCredit) * 100) / 100;
 
