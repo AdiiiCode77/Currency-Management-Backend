@@ -247,6 +247,11 @@ export class AuthService {
       throw new BadRequestException(['Invalid email or password. Please check your credentials and try again.']);
     }
 
+    // Check if admin is blocked
+    if (user.block_status === true) {
+      throw new ForbiddenException(['Your account has been blocked. Please contact support for assistance.']);
+    }
+
     const isMatch = await bcrypt.compare(body.password, user.password);
     if (!isMatch) {
       throw new BadRequestException(['Invalid email or password. Please check your credentials and try again.']);
