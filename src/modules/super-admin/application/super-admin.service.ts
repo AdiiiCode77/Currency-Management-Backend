@@ -49,9 +49,14 @@ export class SuperAdminService {
   // Seed Default Super Admin (runs on startup)
   async seedDefaultSuperAdmin(): Promise<void> {
     try {
+      const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || 'superadmin@dirham.com';
+      const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD || 'SuperAdmin@123';
+      const superAdminName = process.env.SUPER_ADMIN_NAME || 'Super Administrator';
+      const superAdminPhone = process.env.SUPER_ADMIN_PHONE || '+923001234567';
+
       // Check if super admin already exists
       const existingSuperAdmin = await this.superAdminRepository.findOne({
-        where: { email: 'superadmin@dirham.com' },
+        where: { email: superAdminEmail },
       });
 
       if (existingSuperAdmin) {
@@ -60,22 +65,21 @@ export class SuperAdminService {
       }
 
       // Create default super admin
-      const hashedPassword = await bcrypt.hash('SuperAdmin@123', 10);
+      const hashedPassword = await bcrypt.hash(superAdminPassword, 10);
 
       const superAdmin = this.superAdminRepository.create({
         id: uuidV4(),
-        email: 'superadmin@dirham.com',
+        email: superAdminEmail,
         password: hashedPassword,
-        name: 'Super Administrator',
-        phone: '+923001234567',
+        name: superAdminName,
+        phone: superAdminPhone,
         is_active: true,
       });
 
       await this.superAdminRepository.save(superAdmin);
 
       console.log('✅ Super Admin seeded successfully!');
-      console.log('📧 Email: superadmin@dirham.com');
-      console.log('🔑 Password: SuperAdmin@123');
+      console.log('📧 Email:', superAdminEmail);
       console.log('⚠️  Please change the password after first login!');
     } catch (error) {
       console.error('❌ Error seeding super admin:', error.message);
@@ -183,7 +187,7 @@ export class SuperAdminService {
       // Create admin
       const admin = queryRunner.manager.create(AdminEntity, {
         id: uuidV4(),
-        type,
+        type: 'admin',
         user_profile_id: savedUserProfile.id,
       });
 
