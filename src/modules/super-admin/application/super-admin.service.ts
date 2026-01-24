@@ -282,6 +282,7 @@ export class SuperAdminService {
           email: user.email,
           name: user.name,
           phone: user.phone,
+          password: user.password,
           block_status: user.block_status,
           type: admin?.type,
           payments: payments.map((p) => ({
@@ -346,6 +347,7 @@ export class SuperAdminService {
       email: user.email,
       name: user.name,
       phone: user.phone,
+      password: user.password,
       block_status: user.block_status,
       type: admin.type,
       account_balance: user.account_balance,
