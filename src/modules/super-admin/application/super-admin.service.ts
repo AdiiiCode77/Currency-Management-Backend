@@ -23,6 +23,7 @@ import { CreatePaymentDto } from '../domain/dto/create-payment.dto';
 import { UpdatePaymentDto } from '../domain/dto/update-payment.dto';
 import { FilterAdminsDto } from '../domain/dto/filter-admins.dto';
 import { FilterUsersDto } from '../domain/dto/filter-users.dto';
+import { FilterAllPaymentsDto } from '../domain/dto/filter-all-payments.dto';
 import { BlockUserDto } from '../domain/dto/block-user.dto';
 import { DashboardStatsDto } from '../domain/dto/dashboard-stats.dto';
 import { PaymentStatus } from '../domain/entities/admin-payment.entity';
@@ -285,6 +286,7 @@ export class SuperAdminService {
           type: admin?.type,
           payments: payments.map((p) => ({
             id: p.id,
+            transaction_id: p.transaction_id,
             amount: p.amount,
             status: p.status,
             due_date: p.due_date,
@@ -354,6 +356,7 @@ export class SuperAdminService {
       updatedAt: user.updatedAt,
       payments: payments.map((p) => ({
         id: p.id,
+        transaction_id: p.transaction_id,
         amount: p.amount,
         status: p.status,
         due_date: p.due_date,
@@ -464,8 +467,14 @@ export class SuperAdminService {
       throw new NotFoundException('Admin not found');
     }
 
+    // Generate unique transaction ID
+    const timestamp = Date.now();
+    const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const transaction_id = `TXN-${timestamp}-${randomPart}`;
+
     const payment = this.adminPaymentRepository.create({
       id: uuidV4(),
+      transaction_id,
       admin_id,
       amount,
       status,
@@ -479,11 +488,13 @@ export class SuperAdminService {
       message: 'Payment created successfully',
       payment: {
         id: savedPayment.id,
+        transaction_id: savedPayment.transaction_id,
         admin_id: savedPayment.admin_id,
+        admin_name: admin.name,
         amount: savedPayment.amount,
         status: savedPayment.status,
         description: savedPayment.description,
-        due_date: savedPayment.due_date,
+        due_date: savedPayment.due_date
       },
     };
   }
@@ -499,18 +510,42 @@ export class SuperAdminService {
     }
 
     if (updateDto.amount !== undefined) payment.amount = updateDto.amount;
-    if (updateDto.status) payment.status = updateDto.status;
     if (updateDto.description) payment.description = updateDto.description;
     if (updateDto.due_date) payment.due_date = new Date(updateDto.due_date);
-    if (updateDto.paid_date) payment.paid_date = new Date(updateDto.paid_date);
+    
+    // If status is being changed to 'paid' and paid_date is not provided, auto-fill it
+    if (updateDto.status === PaymentStatus.PAID) {
+      if (updateDto.paid_date) {
+        payment.paid_date = new Date(updateDto.paid_date);
+      } else {
+        payment.paid_date = new Date(); // Auto-fill with current date/time
+      }
+      payment.status = updateDto.status;
+    } else if (updateDto.status) {
+      payment.status = updateDto.status;
+      // If status is changed from paid to something else, clear paid_date
+      payment.paid_date = null;
+    }
+    
+    // If paid_date is explicitly provided for non-paid status, use it
+    if (updateDto.paid_date && updateDto.status && updateDto.status !== PaymentStatus.PAID) {
+      payment.paid_date = new Date(updateDto.paid_date);
+    }
 
     const updatedPayment = await this.adminPaymentRepository.save(payment);
+
+    // Get admin details
+    const admin = await this.userRepository.findOne({
+      where: { id: updatedPayment.admin_id },
+    });
 
     return {
       message: 'Payment updated successfully',
       payment: {
         id: updatedPayment.id,
+        transaction_id: updatedPayment.transaction_id,
         admin_id: updatedPayment.admin_id,
+        admin_name: admin?.name || null,
         amount: updatedPayment.amount,
         status: updatedPayment.status,
         description: updatedPayment.description,
@@ -522,6 +557,15 @@ export class SuperAdminService {
 
   // Get All Payments for an Admin
   async getAdminPayments(adminId: string) {
+    // Get admin details
+    const admin = await this.userRepository.findOne({
+      where: { id: adminId },
+    });
+
+    if (!admin) {
+      throw new NotFoundException('Admin not found');
+    }
+
     const payments = await this.adminPaymentRepository.find({
       where: { admin_id: adminId },
       order: { createdAt: 'DESC' },
@@ -530,6 +574,9 @@ export class SuperAdminService {
     return {
       data: payments.map((p) => ({
         id: p.id,
+        transaction_id: p.transaction_id,
+        admin_id: p.admin_id,
+        admin_name: admin.name,
         amount: p.amount,
         status: p.status,
         description: p.description,
@@ -555,6 +602,91 @@ export class SuperAdminService {
 
     return {
       message: 'Payment deleted successfully',
+    };
+  }
+
+  // Get All Payments with Filtering and Pagination
+  async getAllPayments(filterDto: FilterAllPaymentsDto) {
+    const { search, admin_name, status, page = 1, limit = 10 } = filterDto;
+
+    const queryBuilder = this.adminPaymentRepository
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('users', 'user', 'user.id = payment.admin_id')
+      .select([
+        'payment.id',
+        'payment.transaction_id',
+        'payment.admin_id',
+        'payment.amount',
+        'payment.status',
+        'payment.description',
+        'payment.due_date',
+        'payment.paid_date',
+        'payment.created_at',
+        'payment.updated_at',
+        'user.name',
+        'user.email',
+      ]);
+
+    // Search by transaction_id
+    if (search) {
+      queryBuilder.andWhere('payment.transaction_id ILIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    // Filter by admin name
+    if (admin_name) {
+      queryBuilder.andWhere('user.name ILIKE :admin_name', {
+        admin_name: `%${admin_name}%`,
+      });
+    }
+
+    // Filter by payment status
+    if (status) {
+      queryBuilder.andWhere('payment.status = :status', { status });
+    }
+
+    // Pagination
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    // Order by created date
+    queryBuilder.orderBy('payment.created_at', 'DESC');
+
+    const [payments, total] = await queryBuilder.getManyAndCount();
+
+    // Format the response with admin names
+    const formattedPayments = await Promise.all(
+      payments.map(async (payment) => {
+        const admin = await this.userRepository.findOne({
+          where: { id: payment.admin_id },
+        });
+
+        return {
+          id: payment.id,
+          transaction_id: payment.transaction_id,
+          admin_id: payment.admin_id,
+          admin_name: admin?.name || null,
+          admin_email: admin?.email || null,
+          amount: payment.amount,
+          status: payment.status,
+          description: payment.description,
+          due_date: payment.due_date,
+          paid_date: payment.paid_date,
+          createdAt: payment.createdAt,
+          updatedAt: payment.updatedAt,
+        };
+      }),
+    );
+
+    return {
+      data: formattedPayments,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 

@@ -19,6 +19,7 @@ import { CreatePaymentDto } from '../domain/dto/create-payment.dto';
 import { UpdatePaymentDto } from '../domain/dto/update-payment.dto';
 import { FilterAdminsDto } from '../domain/dto/filter-admins.dto';
 import { FilterUsersDto } from '../domain/dto/filter-users.dto';
+import { FilterAllPaymentsDto } from '../domain/dto/filter-all-payments.dto';
 import { BlockUserDto } from '../domain/dto/block-user.dto';
 import { DashboardStatsDto } from '../domain/dto/dashboard-stats.dto';
 
@@ -77,6 +78,12 @@ export class SuperAdminController {
   // @UseGuards(JwtGuard, IsSuperAdminGuard)
   async createPayment(@Body() createPaymentDto: CreatePaymentDto) {
     return this.superAdminService.createPayment(createPaymentDto);
+  }
+
+  @Get('payments')
+  // @UseGuards(JwtGuard, IsSuperAdminGuard)
+  async getAllPayments(@Query() filterDto: FilterAllPaymentsDto) {
+    return this.superAdminService.getAllPayments(filterDto);
   }
 
   @Get('payments/admin/:adminId')

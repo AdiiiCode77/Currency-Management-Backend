@@ -17,6 +17,9 @@ export class AdminPaymentEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'varchar', unique: true, nullable: false })
+  transaction_id: string;
+
   @Column({ type: 'uuid', nullable: false })
   admin_id: string;
 
