@@ -244,17 +244,17 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BadRequestException(['Invalid email or password. Please check your credentials and try again.']);
+      throw new BadRequestException('Invalid email or password. Please check your credentials and try again.');
     }
 
     // Check if admin is blocked
     if (user.block_status === true) {
-      throw new ForbiddenException(['Your account has been blocked. Please contact support for assistance.']);
+      throw new ForbiddenException('Your account has been blocked. Please contact support for assistance.');
     }
 
     const isMatch = await bcrypt.compare(body.password, user.password);
     if (!isMatch) {
-      throw new BadRequestException(['Invalid email or password. Please check your credentials and try again.']);
+      throw new BadRequestException('Invalid email or password. Please check your credentials and try again.');
     }
 
     // Check if user has admin, staff, or vendor profile
@@ -268,9 +268,9 @@ export class AuthService {
       .getMany();
 
     if (adminProfiles.length === 0) {
-      throw new ForbiddenException([
+      throw new ForbiddenException(
         'Access denied. This account does not have administrative privileges.',
-      ]);
+      );
     }
     const mainTablesData: ({ data: AdminEntity } & { key: string })[] = [];
 

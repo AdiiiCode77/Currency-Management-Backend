@@ -61,12 +61,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     // Build response
     const errorResponse = {
-      statusCode: status,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      method: request.method,
+      status: status,
       message,
-      error,
     };
 
     // Log the error (but not sensitive data)
