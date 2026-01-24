@@ -20,6 +20,7 @@ import { UpdatePaymentDto } from '../domain/dto/update-payment.dto';
 import { FilterAdminsDto } from '../domain/dto/filter-admins.dto';
 import { FilterUsersDto } from '../domain/dto/filter-users.dto';
 import { BlockUserDto } from '../domain/dto/block-user.dto';
+import { DashboardStatsDto } from '../domain/dto/dashboard-stats.dto';
 
 @Controller('super-admin')
 export class SuperAdminController {
@@ -117,5 +118,31 @@ export class SuperAdminController {
   // @UseGuards(JwtGuard, IsSuperAdminGuard)
   async blockUser(@Param('id') id: string, @Body() blockDto: BlockUserDto) {
     return this.superAdminService.blockUser(id, blockDto);
+  }
+
+  // ===================== DASHBOARD & ANALYTICS =====================
+
+  @Get('dashboard/stats')
+  // @UseGuards(JwtGuard, IsSuperAdminGuard)
+  async getDashboardStats() {
+    return this.superAdminService.getDashboardStats();
+  }
+
+  @Get('dashboard/monthly-stats')
+  // @UseGuards(JwtGuard, IsSuperAdminGuard)
+  async getMonthlyStats(@Query() statsDto: DashboardStatsDto) {
+    return this.superAdminService.getMonthlyStats(statsDto);
+  }
+
+  @Get('dashboard/payment-cards')
+  // @UseGuards(JwtGuard, IsSuperAdminGuard)
+  async getPaymentCards() {
+    return this.superAdminService.getPaymentCards();
+  }
+
+  @Get('dashboard/admin-breakdown')
+  // @UseGuards(JwtGuard, IsSuperAdminGuard)
+  async getAdminPaymentBreakdown(@Query() statsDto: DashboardStatsDto) {
+    return this.superAdminService.getAdminPaymentBreakdown(statsDto);
   }
 }

@@ -23,6 +23,8 @@ import { UpdatePaymentDto } from '../domain/dto/update-payment.dto';
 import { FilterAdminsDto } from '../domain/dto/filter-admins.dto';
 import { FilterUsersDto } from '../domain/dto/filter-users.dto';
 import { BlockUserDto } from '../domain/dto/block-user.dto';
+import { DashboardStatsDto } from '../domain/dto/dashboard-stats.dto';
+import { PaymentStatus } from '../domain/entities/admin-payment.entity';
 
 @Injectable()
 export class SuperAdminService {
@@ -612,6 +614,387 @@ export class SuperAdminService {
         email: user.email,
         name: user.name,
         block_status: user.block_status,
+      },
+    };
+  }
+
+  // ===================== DASHBOARD & ANALYTICS =====================
+
+  // Get Dashboard Overview Stats
+  async getDashboardStats() {
+    // Total admins count
+    const totalAdmins = await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoin('user_profiles', 'profile', 'profile.user_id = user.id')
+      .leftJoin('admins', 'admin', 'admin.user_profile_id = profile.id')
+      .where('admin.id IS NOT NULL')
+      .getCount();
+
+    // Active admins (not blocked)
+    const activeAdmins = await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoin('user_profiles', 'profile', 'profile.user_id = user.id')
+      .leftJoin('admins', 'admin', 'admin.user_profile_id = profile.id')
+      .where('admin.id IS NOT NULL')
+      .andWhere('user.block_status = :status', { status: false })
+      .getCount();
+
+    // Blocked admins
+    const blockedAdmins = totalAdmins - activeAdmins;
+
+    // Payment statistics
+    const totalPayments = await this.adminPaymentRepository.count();
+
+    const pendingPayments = await this.adminPaymentRepository.count({
+      where: { status: PaymentStatus.PENDING },
+    });
+
+    const paidPayments = await this.adminPaymentRepository.count({
+      where: { status: PaymentStatus.PAID },
+    });
+
+    const overduePayments = await this.adminPaymentRepository.count({
+      where: { status: PaymentStatus.OVERDUE },
+    });
+
+    // Total revenue (paid payments)
+    const paidPaymentsData = await this.adminPaymentRepository.find({
+      where: { status: PaymentStatus.PAID },
+    });
+
+    const totalRevenue = paidPaymentsData.reduce(
+      (sum, payment) => sum + Number(payment.amount),
+      0,
+    );
+
+    // Pending revenue
+    const pendingPaymentsData = await this.adminPaymentRepository.find({
+      where: { status: PaymentStatus.PENDING },
+    });
+
+    const pendingRevenue = pendingPaymentsData.reduce(
+      (sum, payment) => sum + Number(payment.amount),
+      0,
+    );
+
+    // Overdue revenue
+    const overduePaymentsData = await this.adminPaymentRepository.find({
+      where: { status: PaymentStatus.OVERDUE },
+    });
+
+    const overdueRevenue = overduePaymentsData.reduce(
+      (sum, payment) => sum + Number(payment.amount),
+      0,
+    );
+
+    // Current month stats
+    const currentDate = new Date();
+    const firstDayOfMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      1,
+    );
+    const lastDayOfMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1,
+      0,
+    );
+
+    const currentMonthPayments = await this.adminPaymentRepository
+      .createQueryBuilder('payment')
+      .where('payment.created_at >= :start', { start: firstDayOfMonth })
+      .andWhere('payment.created_at <= :end', { end: lastDayOfMonth })
+      .getMany();
+
+    const currentMonthRevenue = currentMonthPayments
+      .filter((p) => p.status === PaymentStatus.PAID)
+      .reduce((sum, payment) => sum + Number(payment.amount), 0);
+
+    const currentMonthPending = currentMonthPayments.filter(
+      (p) => p.status === PaymentStatus.PENDING,
+    ).length;
+
+    return {
+      admins: {
+        total: totalAdmins,
+        active: activeAdmins,
+        blocked: blockedAdmins,
+      },
+      payments: {
+        total: totalPayments,
+        pending: pendingPayments,
+        paid: paidPayments,
+        overdue: overduePayments,
+      },
+      revenue: {
+        total: Number(totalRevenue.toFixed(2)),
+        pending: Number(pendingRevenue.toFixed(2)),
+        overdue: Number(overdueRevenue.toFixed(2)),
+      },
+      currentMonth: {
+        revenue: Number(currentMonthRevenue.toFixed(2)),
+        pendingPayments: currentMonthPending,
+        totalPayments: currentMonthPayments.length,
+      },
+    };
+  }
+
+  // Get Monthly Payment Stats
+  async getMonthlyStats(statsDto: DashboardStatsDto) {
+    const { year, month } = statsDto;
+    const currentYear = year || new Date().getFullYear().toString();
+    const targetMonth = month ? parseInt(month.split('-')[1]) : null;
+
+    let monthlyData = [];
+
+    if (targetMonth) {
+      // Get specific month data
+      const monthDate = new Date(parseInt(currentYear), targetMonth - 1, 1);
+      const firstDay = new Date(
+        monthDate.getFullYear(),
+        monthDate.getMonth(),
+        1,
+      );
+      const lastDay = new Date(
+        monthDate.getFullYear(),
+        monthDate.getMonth() + 1,
+        0,
+      );
+
+      const payments = await this.adminPaymentRepository
+        .createQueryBuilder('payment')
+        .where('payment.created_at >= :start', { start: firstDay })
+        .andWhere('payment.created_at <= :end', { end: lastDay })
+        .getMany();
+
+      const paid = payments.filter((p) => p.status === PaymentStatus.PAID);
+      const pending = payments.filter((p) => p.status === PaymentStatus.PENDING);
+      const overdue = payments.filter((p) => p.status === PaymentStatus.OVERDUE);
+
+      monthlyData.push({
+        month: `${currentYear}-${targetMonth.toString().padStart(2, '0')}`,
+        totalPayments: payments.length,
+        paidPayments: paid.length,
+        pendingPayments: pending.length,
+        overduePayments: overdue.length,
+        totalRevenue: Number(
+          paid.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2),
+        ),
+        pendingRevenue: Number(
+          pending.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2),
+        ),
+        overdueRevenue: Number(
+          overdue.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2),
+        ),
+      });
+    } else {
+      // Get all 12 months data for the year
+      for (let m = 0; m < 12; m++) {
+        const firstDay = new Date(parseInt(currentYear), m, 1);
+        const lastDay = new Date(parseInt(currentYear), m + 1, 0);
+
+        const payments = await this.adminPaymentRepository
+          .createQueryBuilder('payment')
+          .where('payment.created_at >= :start', { start: firstDay })
+          .andWhere('payment.created_at <= :end', { end: lastDay })
+          .getMany();
+
+        const paid = payments.filter((p) => p.status === PaymentStatus.PAID);
+        const pending = payments.filter(
+          (p) => p.status === PaymentStatus.PENDING,
+        );
+        const overdue = payments.filter(
+          (p) => p.status === PaymentStatus.OVERDUE,
+        );
+
+        monthlyData.push({
+          month: `${currentYear}-${(m + 1).toString().padStart(2, '0')}`,
+          totalPayments: payments.length,
+          paidPayments: paid.length,
+          pendingPayments: pending.length,
+          overduePayments: overdue.length,
+          totalRevenue: Number(
+            paid.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2),
+          ),
+          pendingRevenue: Number(
+            pending.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2),
+          ),
+          overdueRevenue: Number(
+            overdue.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2),
+          ),
+        });
+      }
+    }
+
+    return {
+      year: currentYear,
+      data: monthlyData,
+    };
+  }
+
+  // Get Payment Cards/Summary by Status
+  async getPaymentCards() {
+    const now = new Date();
+
+    // Pending Payments
+    const pendingPayments = await this.adminPaymentRepository.find({
+      where: { status: PaymentStatus.PENDING },
+      order: { due_date: 'ASC' },
+    });
+
+    const pendingTotal = pendingPayments.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0,
+    );
+
+    // Paid Payments (This Month)
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const paidThisMonth = await this.adminPaymentRepository
+      .createQueryBuilder('payment')
+      .where('payment.status = :status', { status: PaymentStatus.PAID })
+      .andWhere('payment.paid_date >= :start', { start: firstDayOfMonth })
+      .getMany();
+
+    const paidTotal = paidThisMonth.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0,
+    );
+
+    // Overdue Payments
+    const overduePayments = await this.adminPaymentRepository.find({
+      where: { status: PaymentStatus.OVERDUE },
+      order: { due_date: 'ASC' },
+    });
+
+    const overdueTotal = overduePayments.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0,
+    );
+
+    // Upcoming Due (Next 7 days)
+    const nextWeek = new Date();
+    nextWeek.setDate(now.getDate() + 7);
+
+    const upcomingPayments = await this.adminPaymentRepository
+      .createQueryBuilder('payment')
+      .where('payment.status = :status', { status: PaymentStatus.PENDING })
+      .andWhere('payment.due_date >= :now', { now })
+      .andWhere('payment.due_date <= :nextWeek', { nextWeek })
+      .orderBy('payment.due_date', 'ASC')
+      .getMany();
+
+    const upcomingTotal = upcomingPayments.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0,
+    );
+
+    return {
+      pending: {
+        count: pendingPayments.length,
+        total: Number(pendingTotal.toFixed(2)),
+        payments: pendingPayments.slice(0, 5).map((p) => ({
+          id: p.id,
+          admin_id: p.admin_id,
+          amount: p.amount,
+          due_date: p.due_date,
+          description: p.description,
+        })),
+      },
+      paid: {
+        count: paidThisMonth.length,
+        total: Number(paidTotal.toFixed(2)),
+        month: `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`,
+      },
+      overdue: {
+        count: overduePayments.length,
+        total: Number(overdueTotal.toFixed(2)),
+        payments: overduePayments.slice(0, 5).map((p) => ({
+          id: p.id,
+          admin_id: p.admin_id,
+          amount: p.amount,
+          due_date: p.due_date,
+          description: p.description,
+        })),
+      },
+      upcoming: {
+        count: upcomingPayments.length,
+        total: Number(upcomingTotal.toFixed(2)),
+        payments: upcomingPayments.map((p) => ({
+          id: p.id,
+          admin_id: p.admin_id,
+          amount: p.amount,
+          due_date: p.due_date,
+          description: p.description,
+        })),
+      },
+    };
+  }
+
+  // Get Admin-wise Payment Breakdown
+  async getAdminPaymentBreakdown(statsDto: DashboardStatsDto) {
+    const { page = 1, limit = 10 } = statsDto;
+
+    // Get all admins with their profiles
+    const adminsQuery = this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user_profiles', 'profile', 'profile.user_id = user.id')
+      .leftJoinAndSelect('admins', 'admin', 'admin.user_profile_id = profile.id')
+      .where('admin.id IS NOT NULL')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [admins, total] = await adminsQuery.getManyAndCount();
+
+    const adminBreakdown = await Promise.all(
+      admins.map(async (admin) => {
+        const payments = await this.adminPaymentRepository.find({
+          where: { admin_id: admin.id },
+        });
+
+        const paid = payments.filter((p) => p.status === PaymentStatus.PAID);
+        const pending = payments.filter(
+          (p) => p.status === PaymentStatus.PENDING,
+        );
+        const overdue = payments.filter(
+          (p) => p.status === PaymentStatus.OVERDUE,
+        );
+
+        return {
+          admin_id: admin.id,
+          admin_name: admin.name,
+          admin_email: admin.email,
+          total_payments: payments.length,
+          paid_count: paid.length,
+          pending_count: pending.length,
+          overdue_count: overdue.length,
+          total_paid: Number(
+            paid.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2),
+          ),
+          total_pending: Number(
+            pending.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2),
+          ),
+          total_overdue: Number(
+            overdue.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2),
+          ),
+          last_payment_date:
+            paid.length > 0
+              ? paid.sort(
+                  (a, b) =>
+                    new Date(b.paid_date).getTime() -
+                    new Date(a.paid_date).getTime(),
+                )[0].paid_date
+              : null,
+        };
+      }),
+    );
+
+    return {
+      data: adminBreakdown,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
     };
   }
