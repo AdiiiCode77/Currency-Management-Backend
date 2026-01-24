@@ -7,6 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { LoggerService } from './modules/logger/logger.service';
 import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 import express from 'express';
+import { SuperAdminService } from './modules/super-admin/application/super-admin.service';
 
 async function bootstrap() {
   const loggerService: LoggerService = new LoggerService();
@@ -55,6 +56,10 @@ async function bootstrap() {
 
   app.use('/api/v1/webhooks', express.raw({ type: 'application/json' }));
   app.use(express.urlencoded({ extended: false }));
+
+  // Seed default super admin on startup
+  const superAdminService = app.get(SuperAdminService);
+  await superAdminService.seedDefaultSuperAdmin();
 
   await app.listen(configService.get('PORT'));
 }

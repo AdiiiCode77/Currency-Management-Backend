@@ -16,6 +16,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import * as redisStore from 'cache-manager-redis-store';
 import { RedisModule } from './shared/modules/redis/redis.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { SuperAdminModule } from './modules/super-admin/super-admin.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     SalePurchaseModule,
     ReportsModule,
     CurrencyModule,
+    SuperAdminModule,
 
     ConfigModule.forRoot({
       isGlobal: true,
