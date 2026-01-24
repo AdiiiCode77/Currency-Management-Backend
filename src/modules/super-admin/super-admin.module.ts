@@ -8,6 +8,7 @@ import { AdminPaymentEntity } from './domain/entities/admin-payment.entity';
 import { UserEntity } from '../users/domain/entities/user.entity';
 import { UserProfileEntity } from '../users/domain/entities/user-profiles.entity';
 import { AdminEntity } from '../users/domain/entities/admin.entity';
+import { UserTypeEntity } from '../users/domain/entities/user-type.entity';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AdminEntity } from '../users/domain/entities/admin.entity';
       UserEntity,
       UserProfileEntity,
       AdminEntity,
+      UserTypeEntity,
     ]),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'your-secret-key',

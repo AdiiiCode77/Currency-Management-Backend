@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, ILike } from 'typeorm';
+import { Repository, Like, ILike, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidV4 } from 'uuid';
@@ -15,6 +15,7 @@ import { AdminPaymentEntity } from '../domain/entities/admin-payment.entity';
 import { UserEntity } from '../../users/domain/entities/user.entity';
 import { UserProfileEntity } from '../../users/domain/entities/user-profiles.entity';
 import { AdminEntity } from '../../users/domain/entities/admin.entity';
+import { UserTypeEntity } from '../../users/domain/entities/user-type.entity';
 import { SuperAdminLoginDto } from '../domain/dto/super-admin-login.dto';
 import { CreateAdminDto } from '../domain/dto/create-admin.dto';
 import { UpdateAdminDto } from '../domain/dto/update-admin.dto';
@@ -39,7 +40,10 @@ export class SuperAdminService {
     private userProfileRepository: Repository<UserProfileEntity>,
     @InjectRepository(AdminEntity)
     private adminRepository: Repository<AdminEntity>,
+    @InjectRepository(UserTypeEntity)
+    private userTypeRepository: Repository<UserTypeEntity>,
     private readonly jwtService: JwtService,
+    private readonly dataSource: DataSource,
   ) {}
 
   // Seed Default Super Admin (runs on startup)
@@ -119,10 +123,11 @@ export class SuperAdminService {
       },
     };
   }
-
+// Create Admin
   async createAdmin(createAdminDto: CreateAdminDto) {
     const { email, password, name, phone, type } = createAdminDto;
 
+    // Check if user with email already exists
     const existingUser = await this.userRepository.findOne({
       where: { email: email.toLowerCase() },
     });
@@ -131,49 +136,92 @@ export class SuperAdminService {
       throw new ConflictException('User with this email already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Use transaction to ensure all operations succeed or all fail
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const user = this.userRepository.create({
-      id: uuidV4(),
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      name,
-      phone,
-      email_is_verified: true,
-      block_status: false,
-    });
+    try {
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-    const savedUser = await this.userRepository.save(user);
+      // Get or create "admin" user type
+      let adminUserType = await queryRunner.manager.findOne(UserTypeEntity, {
+        where: { name: 'admin' },
+      });
 
-    // Create user profile
-    const userProfile = this.userProfileRepository.create({
-      id: uuidV4(),
-      user_id: savedUser.id,
-    });
+      if (!adminUserType) {
+        adminUserType = queryRunner.manager.create(UserTypeEntity, {
+          id: uuidV4(),
+          name: 'admin',
+        });
+        adminUserType = await queryRunner.manager.save(adminUserType);
+      }
 
-    const savedUserProfile = await this.userProfileRepository.save(userProfile);
+      // Create user
+      const user = queryRunner.manager.create(UserEntity, {
+        id: uuidV4(),
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        name,
+        phone,
+        email_is_verified: true,
+        block_status: false,
+      });
 
-    // Create admin
-    const admin = this.adminRepository.create({
-      id: uuidV4(),
-      type,
-      user_profile_id: savedUserProfile.id,
-    });
+      const savedUser = await queryRunner.manager.save(user);
 
-    await this.adminRepository.save(admin);
+      // Create user profile with user_type_id
+      const userProfile = queryRunner.manager.create(UserProfileEntity, {
+        id: uuidV4(),
+        user_id: savedUser.id,
+        user_type_id: adminUserType.id,
+      });
 
-    return {
-      message: 'Admin created successfully',
-      admin: {
-        id: savedUser.id,
-        email: savedUser.email,
-        name: savedUser.name,
-        phone: savedUser.phone,
+      const savedUserProfile = await queryRunner.manager.save(userProfile);
+
+      // Create admin
+      const admin = queryRunner.manager.create(AdminEntity, {
+        id: uuidV4(),
         type,
-      },
-    };
+        user_profile_id: savedUserProfile.id,
+      });
+
+      await queryRunner.manager.save(admin);
+
+      // Commit transaction
+      await queryRunner.commitTransaction();
+
+      return {
+        message: 'Admin created successfully',
+        admin: {
+          id: savedUser.id,
+          email: savedUser.email,
+          name: savedUser.name,
+          phone: savedUser.phone,
+          type,
+        },
+      };
+    } catch (error) {
+      // Rollback transaction on error
+      await queryRunner.rollbackTransaction();
+      
+      // Re-throw the error with a user-friendly message
+      if (error.code === '23505') {
+        // Unique constraint violation
+        throw new ConflictException('Admin with this email already exists');
+      }
+      
+      throw new BadRequestException(
+        `Failed to create admin: ${error.message}`,
+      );
+    } finally {
+      // Release query runner
+      await queryRunner.release();
+    }
   }
 
+  // Get All Admins with Filtering and Pagination
   async getAllAdmins(filterDto: FilterAdminsDto) {
     const { search, type, block_status, page = 1, limit = 10 } = filterDto;
 
