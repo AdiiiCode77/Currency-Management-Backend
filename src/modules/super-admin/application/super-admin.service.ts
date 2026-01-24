@@ -382,6 +382,12 @@ export class SuperAdminService {
     if (updateDto.phone) user.phone = updateDto.phone;
     if (updateDto.block_status !== undefined)
       user.block_status = updateDto.block_status;
+    
+    // Update password if provided
+    if (updateDto.password) {
+      const hashedPassword = await bcrypt.hash(updateDto.password, 10);
+      user.password = hashedPassword;
+    }
 
     await this.userRepository.save(user);
 
