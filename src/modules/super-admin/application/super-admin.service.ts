@@ -796,6 +796,30 @@ export class SuperAdminService {
     };
   }
 
+  // Block/Unblock Admin
+  async blockAdmin(adminId: string, blockDto: BlockUserDto) {
+    const user = await this.userRepository.findOne({
+      where: { id: adminId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Admin not found');
+    }
+
+    user.block_status = blockDto.block_status;
+    await this.userRepository.save(user);
+
+    return {
+      message: `Admin ${blockDto.block_status ? 'blocked' : 'unblocked'} successfully`,
+      admin: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        block_status: user.block_status,
+      },
+    };
+  }
+
   // ===================== DASHBOARD & ANALYTICS =====================
 
   // Get Dashboard Overview Stats

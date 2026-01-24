@@ -71,6 +71,12 @@ export class SuperAdminController {
     return this.superAdminService.deleteAdmin(id);
   }
 
+  @Put('admins/:id/block')
+  // @UseGuards(JwtGuard, IsSuperAdminGuard)
+  async blockAdmin(@Param('id') id: string, @Body() blockDto: BlockUserDto) {
+    return this.superAdminService.blockAdmin(id, blockDto);
+  }
+
   // ===================== PAYMENT MANAGEMENT =====================
 
   @Post('payments')
