@@ -7,10 +7,12 @@ import {
   Post,
   Req,
   Request,
+  UseGuards,
 } from '@nestjs/common';
 
 import { AuthService } from '../application/auth.service';
 import { CreateUserDto, SignupFirstStepDTO } from '../domain/dto/signup.dto';
+import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
 import {
   ApiBody,
   ApiOperation,
@@ -157,5 +159,46 @@ export class AuthController {
       email: body.email.toLowerCase(),
       password: body.password,
     });
+  }
+
+  @Get('/profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get authenticated admin profile',
+    description: 'Returns the profile data for the logged-in admin using JWT token',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile retrieved successfully',
+    schema: {
+      example: {
+        id: 'user-id',
+        email: 'admin@example.com',
+        name: 'Admin User',
+        phone: '+923001234567',
+        block_status: false,
+        type: 'admin',
+        account_balance: 0,
+        balance_in: 'PKR',
+        email_is_verified: true,
+        last_login: '2026-01-25T12:00:00Z',
+        adminProfiles: [
+          {
+            key: 'admin',
+            data: {
+              id: 'admin-id',
+              type: 'admin',
+            },
+          },
+        ],
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing token',
+  })
+  async getProfile(@Req() request: any) {
+    return this.authService.getAdminProfile(request.userId);
   }
 }

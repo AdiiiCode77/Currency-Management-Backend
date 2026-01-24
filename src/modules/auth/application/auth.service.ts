@@ -307,4 +307,66 @@ export class AuthService {
       accessToken,
     };
   }
+
+  // Get Admin Profile by User ID (from JWT token)
+  async getAdminProfile(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check if admin is blocked
+    if (user.block_status === true) {
+      throw new ForbiddenException('Your account has been blocked. Please contact support for assistance.');
+    }
+
+    // Get admin profiles
+    const adminProfiles = await this.userProfileEntity
+      .createQueryBuilder('user_profile')
+      .leftJoinAndSelect('user_profile.userType', 'user_types')
+      .where('user_profile.user_id = :userId', { userId: user.id })
+      .andWhere('user_types.name IN (:...types)', {
+        types: ['admin', 'customer', 'superAdmin'],
+      })
+      .getMany();
+
+    if (adminProfiles.length === 0) {
+      throw new ForbiddenException(
+        'Access denied. This account does not have administrative privileges.',
+      );
+    }
+
+    const mainTablesData: ({ data: AdminEntity } & { key: string })[] = [];
+
+    for (const profile of adminProfiles) {
+      const adminData = await this.adminEntity.findOneBy({
+        user_profile_id: profile.id,
+      });
+
+      if (adminData) {
+        mainTablesData.push({
+          key: profile.userType.name,
+          data: adminData,
+        });
+      }
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      phone: user.phone,
+      block_status: user.block_status,
+      account_balance: user.account_balance,
+      balance_in: user.balance_in,
+      email_is_verified: user.email_is_verified,
+      last_login: user.last_login,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      adminProfiles: mainTablesData,
+    };
+  }
 }
