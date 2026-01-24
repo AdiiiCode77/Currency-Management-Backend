@@ -611,21 +611,7 @@ export class SuperAdminService {
 
     const queryBuilder = this.adminPaymentRepository
       .createQueryBuilder('payment')
-      .leftJoinAndSelect('users', 'user', 'user.id = payment.admin_id')
-      .select([
-        'payment.id',
-        'payment.transaction_id',
-        'payment.admin_id',
-        'payment.amount',
-        'payment.status',
-        'payment.description',
-        'payment.due_date',
-        'payment.paid_date',
-        'payment.created_at',
-        'payment.updated_at',
-        'user.name',
-        'user.email',
-      ]);
+      .leftJoin('users', 'user', 'user.id = payment.admin_id');
 
     // Search by transaction_id
     if (search) {
@@ -651,7 +637,7 @@ export class SuperAdminService {
     queryBuilder.skip(skip).take(limit);
 
     // Order by created date
-    queryBuilder.orderBy('payment.created_at', 'DESC');
+    queryBuilder.orderBy('payment.createdAt', 'DESC');
 
     const [payments, total] = await queryBuilder.getManyAndCount();
 
