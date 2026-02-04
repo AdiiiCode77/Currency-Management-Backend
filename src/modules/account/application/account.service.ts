@@ -255,70 +255,85 @@ export default class AccountService {
     }
 
     return await this.dataSource.transaction(async (manager) => {
-      // 1. Delete customer currency entries
-      await manager.query(
-        `DELETE FROM customer_currency_entries 
-         WHERE account_id IN (
-           SELECT id FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2
-         )`,
+      // Helper function to safely execute delete queries
+      const safeDelete = async (query: string, params: any[]) => {
+        try {
+          const result = await manager.query(query, params);
+          return result;
+        } catch (error) {
+          // Log but don't fail if table doesn't exist
+          console.warn(`Delete query warning: ${error.message}`);
+          return null;
+        }
+      };
+
+      // Get all customer currency account IDs first (before deleting them)
+      const accountIds = await manager.query(
+        `SELECT id FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2`,
         [currencyId, adminId]
       );
+      const accountIdList = accountIds.map((a: any) => a.id);
 
-      // 2. Delete customer currency accounts
-      await manager.query(
+      // 1. Delete currency journal entries (using account IDs)
+      if (accountIdList.length > 0) {
+        await safeDelete(
+          `DELETE FROM journal_currency_entries 
+           WHERE "Cr_account_id" = ANY($1::uuid[]) OR "Dr_account_id" = ANY($1::uuid[])`,
+          [accountIdList]
+        );
+      }
+
+      // 2. Delete customer currency entries
+      await safeDelete(
+        `DELETE FROM customer_currency_entries 
+         WHERE account_id = ANY($1::uuid[])`,
+        [accountIdList.length > 0 ? accountIdList : ['00000000-0000-0000-0000-000000000000']]
+      );
+
+      // 3. Delete customer currency accounts
+      await safeDelete(
         `DELETE FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2`,
         [currencyId, adminId]
       );
 
-      // 3. Delete currency journal entries (Dr and Cr accounts)
-      await manager.query(
-        `DELETE FROM journal_currency_entries 
-         WHERE ("Cr_account_id" IN (
-           SELECT id FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2
-         ) OR "Dr_account_id" IN (
-           SELECT id FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2
-         ))`,
-        [currencyId, adminId]
-      );
-
       // 4. Delete currency stocks
-      await manager.query(
+      await safeDelete(
         `DELETE FROM currency_stocks WHERE currency_id = $1 AND admin_id = $2`,
         [currencyId, adminId]
       );
 
       // 5. Delete currency balances
-      await manager.query(
+      await safeDelete(
         `DELETE FROM currency_balances WHERE currency_id = $1 AND admin_id = $2`,
         [currencyId, adminId]
       );
 
       // 6. Delete currency relations
-      await manager.query(
+      await safeDelete(
         `DELETE FROM currency_relation WHERE currency_id = $1 AND admin_id = $2`,
         [currencyId, adminId]
       );
 
       // 7. Delete purchase entries
-      await manager.query(
+      await safeDelete(
         `DELETE FROM purchase_entries WHERE currency_dr_id = $1 AND admin_id = $2`,
         [currencyId, adminId]
       );
 
-      // 8. Delete selling entries
-      await manager.query(
+      // 8. Delete selling entries  
+      await safeDelete(
         `DELETE FROM selling_entries WHERE from_currency_id = $1 AND admin_id = $2`,
         [currencyId, adminId]
       );
 
       // 9. Delete general ledger entries for this currency
-      await manager.query(
+      await safeDelete(
         `DELETE FROM general_ledger WHERE account_id = $1 AND admin_id = $2 AND account_type = 'CURRENCY'`,
         [currencyId, adminId]
       );
 
       // 10. Delete currency accounts (from currency_account table)
-      await manager.query(
+      await safeDelete(
         `DELETE FROM currency_account WHERE "currencyId" = $1 AND admin_id = $2`,
         [currencyId, adminId]
       );

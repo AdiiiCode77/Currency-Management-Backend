@@ -996,121 +996,107 @@ export class ReportService {
         return typeof cached === 'string' ? JSON.parse(cached) : cached;
       }
 
-      this.logger.debug(`🛑 Balance Sheet cache MISS - Computing from Transaction Tables`);
+      this.logger.debug(`🛑 Balance Sheet cache MISS - Computing from General Ledger`);
 
-      // Build query condition for date range
-      const whereCondition = dateFrom && dateTo
-        ? { where: { adminId, date: Between(dateFrom, dateTo) } }
-        : { where: { adminId } };
+      // Build query for general ledger
+      const queryBuilder = this.generalLedgerRepository
+        .createQueryBuilder('gl')
+        .where('gl.adminId = :adminId', { adminId });
 
-      // Optimized parallel queries with selective columns and limits
-      const [sellingEntries, purchaseEntries, customers, banks, generals] = await Promise.race<any[]>([
-        Promise.all([
-          this.sellingEntryRepository.find({
-            ...whereCondition,
-            select: ['id', 'fromCurrencyId', 'amountCurrency'],
-            relations: ['fromCurrency'],
-            take: 10000,
-          }),
-          this.purchaseEntryRepository.find({
-            ...whereCondition,
-            select: ['id', 'currencyDrId', 'amountCurrency'],
-            take: 10000,
-          }),
-          this.customerAccountRepository.find({
-            where: { adminId },
-            select: ['id', 'name', 'contact', 'email'],
-            take: 1000,
-          }),
-          this.bankAccountRepository.find({
-            where: { adminId },
-            select: ['id', 'bankName', 'accountNumber', 'accountHolder'],
-            take: 1000,
-          }),
-          this.generalAccountRepository.find({
-            where: { adminId },
-            select: ['id', 'name', 'accountType'],
-            take: 1000,
-          }),
-        ]),
-        new Promise<any[]>((_, reject) =>
-          setTimeout(() => reject(new Error('Balance sheet query took too long')), this.QUERY_TIMEOUT),
-        ),
-      ]);
+      if (dateFrom && dateTo) {
+        queryBuilder.andWhere('gl.transactionDate BETWEEN :dateFrom AND :dateTo', {
+          dateFrom,
+          dateTo,
+        });
+      }
 
-      // Aggregate currency transactions
-      const currencyMap = new Map<string, { debit: number; credit: number; name: string; code: string }>();
+      // Fetch all ledger entries
+      const ledgerEntries = await queryBuilder.getMany();
 
-      // Aggregate selling (sales are credit for currency)
-      sellingEntries.forEach((e) => {
-        const key = e.fromCurrencyId;
-        if (!currencyMap.has(key)) {
-          currencyMap.set(key, {
+      // Aggregate by account
+      const accountMap = new Map<string, {
+        accountName: string;
+        accountType: string;
+        debit: number;
+        credit: number;
+        // For specific types
+        contact?: string;
+        email?: string;
+        bankName?: string;
+        accountNumber?: string;
+        accountHolder?: string;
+        currencyCode?: string;
+      }>();
+
+      ledgerEntries.forEach((entry) => {
+        const key = entry.accountId;
+        if (!accountMap.has(key)) {
+          accountMap.set(key, {
+            accountName: entry.accountName,
+            accountType: entry.accountType,
             debit: 0,
             credit: 0,
-            name: e.fromCurrency?.name || '',
-            code: e.fromCurrency?.code || '',
+            currencyCode: entry.currencyCode || '',
           });
         }
-        const entry = currencyMap.get(key)!;
-        entry.credit += Number(e.amountCurrency) || 0;
+        const account = accountMap.get(key)!;
+        account.debit += Number(entry.debitAmount) || 0;
+        account.credit += Number(entry.creditAmount) || 0;
       });
 
-      // Aggregate purchases (purchases are debit for currency)
-      purchaseEntries.forEach((e) => {
-        const key = e.currencyDrId;
-        if (!currencyMap.has(key)) {
-          currencyMap.set(key, { debit: 0, credit: 0, name: '', code: '' });
+      // Separate by account type
+      const currencyBalances: CurrencyBalance[] = [];
+      const customerBalances: CustomerBalance[] = [];
+      const bankBalances: BankBalance[] = [];
+      const generalBalances: GeneralAccountBalance[] = [];
+
+      accountMap.forEach((data, accountId) => {
+        const balance = data.debit - data.credit;
+        
+        if (data.accountType === 'CURRENCY') {
+          currencyBalances.push({
+            currencyId: accountId,
+            currencyName: data.accountName,
+            currencyCode: data.currencyCode || '',
+            totalDebit: Math.round(data.debit * 100) / 100,
+            totalCredit: Math.round(data.credit * 100) / 100,
+            balance: Math.round(balance * 100) / 100,
+            lastUpdated: new Date(),
+          });
+        } else if (data.accountType === 'CUSTOMER') {
+          customerBalances.push({
+            customerId: accountId,
+            customerName: data.accountName,
+            contact: data.contact || '',
+            email: data.email || '',
+            totalDebit: Math.round(data.debit * 100) / 100,
+            totalCredit: Math.round(data.credit * 100) / 100,
+            balance: Math.round(balance * 100) / 100,
+            balanceType: balance >= 0 ? 'DEBIT' : 'CREDIT',
+          });
+        } else if (data.accountType === 'BANK') {
+          bankBalances.push({
+            bankId: accountId,
+            bankName: data.accountName,
+            accountNumber: data.accountNumber || '',
+            accountHolder: data.accountHolder || '',
+            totalDebit: Math.round(data.debit * 100) / 100,
+            totalCredit: Math.round(data.credit * 100) / 100,
+            balance: Math.round(balance * 100) / 100,
+            balanceType: balance >= 0 ? 'DEBIT' : 'CREDIT',
+          });
+        } else if (data.accountType === 'GENERAL') {
+          generalBalances.push({
+            accountId: accountId,
+            accountName: data.accountName,
+            accountType: 'GENERAL',
+            totalDebit: Math.round(data.debit * 100) / 100,
+            totalCredit: Math.round(data.credit * 100) / 100,
+            balance: Math.round(balance * 100) / 100,
+            balanceType: balance >= 0 ? 'DEBIT' : 'CREDIT',
+          });
         }
-        const entry = currencyMap.get(key)!;
-        entry.debit += Number(e.amountCurrency) || 0;
       });
-
-      // Map currency balances
-      const currencyBalances: CurrencyBalance[] = Array.from(currencyMap.entries()).map(([id, data]) => ({
-        currencyId: id,
-        currencyName: data.name,
-        currencyCode: data.code,
-        totalDebit: Math.round(data.debit * 100) / 100,
-        totalCredit: Math.round(data.credit * 100) / 100,
-        balance: Math.round((data.credit - data.debit) * 100) / 100,
-        lastUpdated: new Date(),
-      }));
-
-      // Customer balances
-      const customerBalances: CustomerBalance[] = customers.map((c) => ({
-        customerId: c.id,
-        customerName: c.name,
-        contact: c.contact || '',
-        email: c.email || '',
-        totalDebit: 0,
-        totalCredit: 0,
-        balance: 0,
-        balanceType: 'DEBIT',
-      }));
-
-      // Bank balances
-      const bankBalances: BankBalance[] = banks.map((b) => ({
-        bankId: b.id,
-        bankName: b.bankName,
-        accountNumber: b.accountNumber || '',
-        accountHolder: b.accountHolder || '',
-        totalDebit: 0,
-        totalCredit: 0,
-        balance: 0,
-        balanceType: 'DEBIT',
-      }));
-
-      // General account balances
-      const generalBalances: GeneralAccountBalance[] = generals.map((g) => ({
-        accountId: g.id,
-        accountName: g.name,
-        accountType: g.accountType || 'GENERAL',
-        totalDebit: 0,
-        totalCredit: 0,
-        balance: 0,
-        balanceType: 'DEBIT',
-      }));
 
       // Filter out zero-balance entries
       const hasTransactions = (item: any) => item.totalDebit !== 0 || item.totalCredit !== 0;
@@ -1119,10 +1105,10 @@ export class ReportService {
       const assetCurrencies = currencyBalances.filter(hasTransactions);
       const assetCustomers = customerBalances.filter((c) => c.balanceType === 'DEBIT' && hasTransactions(c));
       const liabilityCustomers = customerBalances.filter((c) => c.balanceType === 'CREDIT' && hasTransactions(c));
-      const assetBanks = bankBalances.filter((b) => b.balanceType === 'CREDIT' && hasTransactions(b));
-      const liabilityBanks = bankBalances.filter((b) => b.balanceType === 'DEBIT' && hasTransactions(b));
-      const assetGenerals = generalBalances.filter(hasTransactions);
-      const liabilityGenerals: GeneralAccountBalance[] = [];
+      const assetBanks = bankBalances.filter((b) => b.balanceType === 'DEBIT' && hasTransactions(b));
+      const liabilityBanks = bankBalances.filter((b) => b.balanceType === 'CREDIT' && hasTransactions(b));
+      const assetGenerals = generalBalances.filter((g) => g.balanceType === 'DEBIT' && hasTransactions(g));
+      const liabilityGenerals = generalBalances.filter((g) => g.balanceType === 'CREDIT' && hasTransactions(g));
 
       // Calculate totals efficiently
       const calculateSum = (items: any[], field: string) =>
