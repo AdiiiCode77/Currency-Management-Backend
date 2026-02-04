@@ -254,29 +254,50 @@ export default class AccountService {
       throw new NotFoundException('Currency not found or access denied');
     }
 
-    return await this.dataSource.transaction(async (manager) => {
-      // Helper function to safely execute delete queries
-      const safeDelete = async (query: string, params: any[]) => {
-        try {
-          const result = await manager.query(query, params);
-          return result;
-        } catch (error) {
-          // Log but don't fail if table doesn't exist
-          console.warn(`Delete query warning: ${error.message}`);
-          return null;
-        }
-      };
+    // Check which tables exist before starting transaction
+    const tableExists = async (tableName: string): Promise<boolean> => {
+      try {
+        const result = await this.dataSource.query(
+          `SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = $1
+          )`,
+          [tableName]
+        );
+        return result[0]?.exists || false;
+      } catch {
+        return false;
+      }
+    };
 
+    const tables = {
+      journalCurrencyEntries: await tableExists('journal_currency_entries'),
+      customerCurrencyEntries: await tableExists('customer_currency_entries'),
+      customerCurrencyAccounts: await tableExists('customer_currency_accounts'),
+      currencyStocks: await tableExists('currency_stocks'),
+      currencyBalances: await tableExists('currency_balances'),
+      currencyRelation: await tableExists('currency_relation'),
+      purchaseEntries: await tableExists('purchase_entries'),
+      sellingEntries: await tableExists('selling_entries'),
+      generalLedger: await tableExists('general_ledger'),
+      currencyAccount: await tableExists('currency_account'),
+    };
+
+    return await this.dataSource.transaction(async (manager) => {
       // Get all customer currency account IDs first (before deleting them)
-      const accountIds = await manager.query(
-        `SELECT id FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2`,
-        [currencyId, adminId]
-      );
-      const accountIdList = accountIds.map((a: any) => a.id);
+      let accountIdList: string[] = [];
+      if (tables.customerCurrencyAccounts) {
+        const accountIds = await manager.query(
+          `SELECT id FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2`,
+          [currencyId, adminId]
+        );
+        accountIdList = accountIds.map((a: any) => a.id);
+      }
 
       // 1. Delete currency journal entries (using account IDs)
-      if (accountIdList.length > 0) {
-        await safeDelete(
+      if (tables.journalCurrencyEntries && accountIdList.length > 0) {
+        await manager.query(
           `DELETE FROM journal_currency_entries 
            WHERE "Cr_account_id" = ANY($1::uuid[]) OR "Dr_account_id" = ANY($1::uuid[])`,
           [accountIdList]
@@ -284,59 +305,76 @@ export default class AccountService {
       }
 
       // 2. Delete customer currency entries
-      await safeDelete(
-        `DELETE FROM customer_currency_entries 
-         WHERE account_id = ANY($1::uuid[])`,
-        [accountIdList.length > 0 ? accountIdList : ['00000000-0000-0000-0000-000000000000']]
-      );
+      if (tables.customerCurrencyEntries && accountIdList.length > 0) {
+        await manager.query(
+          `DELETE FROM customer_currency_entries WHERE account_id = ANY($1::uuid[])`,
+          [accountIdList]
+        );
+      }
 
       // 3. Delete customer currency accounts
-      await safeDelete(
-        `DELETE FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2`,
-        [currencyId, adminId]
-      );
+      if (tables.customerCurrencyAccounts) {
+        await manager.query(
+          `DELETE FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2`,
+          [currencyId, adminId]
+        );
+      }
 
       // 4. Delete currency stocks
-      await safeDelete(
-        `DELETE FROM currency_stocks WHERE currency_id = $1 AND admin_id = $2`,
-        [currencyId, adminId]
-      );
+      if (tables.currencyStocks) {
+        await manager.query(
+          `DELETE FROM currency_stocks WHERE currency_id = $1 AND admin_id = $2`,
+          [currencyId, adminId]
+        );
+      }
 
       // 5. Delete currency balances
-      await safeDelete(
-        `DELETE FROM currency_balances WHERE currency_id = $1 AND admin_id = $2`,
-        [currencyId, adminId]
-      );
+      if (tables.currencyBalances) {
+        await manager.query(
+          `DELETE FROM currency_balances WHERE currency_id = $1 AND admin_id = $2`,
+          [currencyId, adminId]
+        );
+      }
 
       // 6. Delete currency relations
-      await safeDelete(
-        `DELETE FROM currency_relation WHERE currency_id = $1 AND admin_id = $2`,
-        [currencyId, adminId]
-      );
+      if (tables.currencyRelation) {
+        await manager.query(
+          `DELETE FROM currency_relation WHERE currency_id = $1 AND admin_id = $2`,
+          [currencyId, adminId]
+        );
+      }
 
       // 7. Delete purchase entries
-      await safeDelete(
-        `DELETE FROM purchase_entries WHERE currency_dr_id = $1 AND admin_id = $2`,
-        [currencyId, adminId]
-      );
+      if (tables.purchaseEntries) {
+        await manager.query(
+          `DELETE FROM purchase_entries WHERE currency_dr_id = $1 AND admin_id = $2`,
+          [currencyId, adminId]
+        );
+      }
 
-      // 8. Delete selling entries  
-      await safeDelete(
-        `DELETE FROM selling_entries WHERE from_currency_id = $1 AND admin_id = $2`,
-        [currencyId, adminId]
-      );
+      // 8. Delete selling entries
+      if (tables.sellingEntries) {
+        await manager.query(
+          `DELETE FROM selling_entries WHERE from_currency_id = $1 AND admin_id = $2`,
+          [currencyId, adminId]
+        );
+      }
 
       // 9. Delete general ledger entries for this currency
-      await safeDelete(
-        `DELETE FROM general_ledger WHERE account_id = $1 AND admin_id = $2 AND account_type = 'CURRENCY'`,
-        [currencyId, adminId]
-      );
+      if (tables.generalLedger) {
+        await manager.query(
+          `DELETE FROM general_ledger WHERE account_id = $1 AND admin_id = $2 AND account_type = 'CURRENCY'`,
+          [currencyId, adminId]
+        );
+      }
 
       // 10. Delete currency accounts (from currency_account table)
-      await safeDelete(
-        `DELETE FROM currency_account WHERE "currencyId" = $1 AND admin_id = $2`,
-        [currencyId, adminId]
-      );
+      if (tables.currencyAccount) {
+        await manager.query(
+          `DELETE FROM currency_account WHERE "currencyId" = $1 AND admin_id = $2`,
+          [currencyId, adminId]
+        );
+      }
 
       // 11. Finally, delete the currency itself
       await manager.query(
