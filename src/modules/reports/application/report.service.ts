@@ -1212,6 +1212,33 @@ export class ReportService {
         .addOrderBy('gl.createdAt', 'ASC')
         .getMany();
 
+      // If any entries have null contraAccountName, try to populate them
+      // This happens when the general ledger entries were created without contra account info
+      const entriesWithoutContra = ledgerEntries.filter(e => !e.contraAccountName && e.contraAccountId);
+      if (entriesWithoutContra.length > 0) {
+        // Get unique contra account IDs
+        const contraIds = [...new Set(entriesWithoutContra.map(e => e.contraAccountId).filter(Boolean))];
+        
+        if (contraIds.length > 0) {
+          // Fetch the account names
+          const contraAccounts = await this.generalLedgerRepository
+            .createQueryBuilder('gl')
+            .select('DISTINCT gl.accountId', 'accountId')
+            .addSelect('gl.accountName', 'accountName')
+            .where('gl.accountId IN (:...ids)', { ids: contraIds })
+            .getRawMany();
+          
+          const accountNameMap = new Map(contraAccounts.map(a => [a.accountId, a.accountName]));
+          
+          // Populate missing contra account names
+          entriesWithoutContra.forEach(entry => {
+            if (entry.contraAccountId && accountNameMap.has(entry.contraAccountId)) {
+              entry.contraAccountName = accountNameMap.get(entry.contraAccountId);
+            }
+          });
+        }
+      }
+
       // Group by account
       const accountLedgers = new Map<string, {
         accountName: string;
@@ -1234,11 +1261,18 @@ export class ReportService {
         }
         const ledger = accountLedgers.get(key)!;
         
+        // For accountName in entries, show the contra account (the other party in the transaction)
+        // Build a better narration that includes both parties
+        const contraName = entry.contraAccountName || 'Unknown Account';
+        const narration = entry.description 
+          ? `${entry.description} - ${contraName}`
+          : `${entry.entryType} - ${contraName}`;
+        
         ledger.entries.push({
           date: entry.transactionDate,
           entryType: entry.entryType,
-          accountName: entry.contraAccountName || 'N/A',
-          narration: entry.description || `${entry.entryType} transaction`,
+          accountName: contraName,
+          narration: narration,
           debit: Number(entry.debitAmount) || 0,
           credit: Number(entry.creditAmount) || 0,
           balance: 0, // Will calculate running balance below
