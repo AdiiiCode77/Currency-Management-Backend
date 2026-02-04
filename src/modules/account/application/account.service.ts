@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CustomerAccountEntity } from '../domain/entity/customer-account.entity';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { CreateCustomerAccountDto } from '../domain/dto/create-customer-account.dto';
 import { CreateBankAccountDto } from '../domain/dto/create-bank-account.dto';
 import { BankAccountEntity } from '../domain/entity/bank-account.entity';
@@ -42,6 +42,7 @@ export default class AccountService {
     private readonly currencyAccountRepo: Repository<CurrencyAccountEntity>,
 
     private readonly redisService: RedisService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async addUserAccount(dto: CreateCustomerAccountDto, adminId: string) {
@@ -227,5 +228,123 @@ export default class AccountService {
     });
 
     return buildPaginationResponse(data, total, offset, limit);
+  }
+
+  /**
+   * Delete a currency and all its related data
+   * This includes:
+   * - Currency accounts (customer_currency_accounts)
+   * - Currency entries (customer_currency_entries)
+   * - Currency journal entries (journal_currency_entries)
+   * - Currency stocks (currency_stocks)
+   * - Currency balances (currency_balances)
+   * - Currency relations (currency_relation)
+   * - Purchase entries (purchase_entries)
+   * - Selling entries (selling_entries)
+   * - General ledger entries (general_ledger)
+   * - Currency accounts from currency_account table
+   */
+  async deleteCurrency(currencyId: string, adminId: string) {
+    // Verify currency exists and belongs to admin
+    const currency = await this.currencyRepo.findOne({
+      where: { id: currencyId, adminId },
+    });
+
+    if (!currency) {
+      throw new NotFoundException('Currency not found or access denied');
+    }
+
+    return await this.dataSource.transaction(async (manager) => {
+      // 1. Delete customer currency entries
+      await manager.query(
+        `DELETE FROM customer_currency_entries 
+         WHERE account_id IN (
+           SELECT id FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2
+         )`,
+        [currencyId, adminId]
+      );
+
+      // 2. Delete customer currency accounts
+      await manager.query(
+        `DELETE FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2`,
+        [currencyId, adminId]
+      );
+
+      // 3. Delete currency journal entries (Dr and Cr accounts)
+      await manager.query(
+        `DELETE FROM journal_currency_entries 
+         WHERE ("Cr_account_id" IN (
+           SELECT id FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2
+         ) OR "Dr_account_id" IN (
+           SELECT id FROM customer_currency_accounts WHERE currency_id = $1 AND admin_id = $2
+         ))`,
+        [currencyId, adminId]
+      );
+
+      // 4. Delete currency stocks
+      await manager.query(
+        `DELETE FROM currency_stocks WHERE currency_id = $1 AND admin_id = $2`,
+        [currencyId, adminId]
+      );
+
+      // 5. Delete currency balances
+      await manager.query(
+        `DELETE FROM currency_balances WHERE currency_id = $1 AND admin_id = $2`,
+        [currencyId, adminId]
+      );
+
+      // 6. Delete currency relations
+      await manager.query(
+        `DELETE FROM currency_relation WHERE currency_id = $1 AND admin_id = $2`,
+        [currencyId, adminId]
+      );
+
+      // 7. Delete purchase entries
+      await manager.query(
+        `DELETE FROM purchase_entries WHERE currency_dr_id = $1 AND admin_id = $2`,
+        [currencyId, adminId]
+      );
+
+      // 8. Delete selling entries
+      await manager.query(
+        `DELETE FROM selling_entries WHERE from_currency_id = $1 AND admin_id = $2`,
+        [currencyId, adminId]
+      );
+
+      // 9. Delete general ledger entries for this currency
+      await manager.query(
+        `DELETE FROM general_ledger WHERE account_id = $1 AND admin_id = $2 AND account_type = 'CURRENCY'`,
+        [currencyId, adminId]
+      );
+
+      // 10. Delete currency accounts (from currency_account table)
+      await manager.query(
+        `DELETE FROM currency_account WHERE "currencyId" = $1 AND admin_id = $2`,
+        [currencyId, adminId]
+      );
+
+      // 11. Finally, delete the currency itself
+      await manager.query(
+        `DELETE FROM currency_user WHERE id = $1 AND admin_id = $2`,
+        [currencyId, adminId]
+      );
+
+      // 12. Clear all related Redis cache
+      const redis = this.redisService.getClient();
+      const keys = await redis.keys(`*${adminId}*`);
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+
+      return {
+        success: true,
+        message: 'Currency and all related data deleted successfully',
+        deletedCurrency: {
+          id: currency.id,
+          name: currency.name,
+          code: currency.code,
+        },
+      };
+    });
   }
 }

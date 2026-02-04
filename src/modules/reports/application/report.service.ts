@@ -1206,128 +1206,93 @@ export class ReportService {
         return typeof cached === 'string' ? JSON.parse(cached) : cached;
       }
 
-      this.logger.debug(`🛑 Detailed Balance Sheet cache MISS - Computing from Transaction Tables`);
+      this.logger.debug(`🛑 Detailed Balance Sheet cache MISS - Computing from General Ledger`);
 
-      // Build query condition for date range
-      const whereCondition = dateFrom && dateTo
-        ? { where: { adminId, date: Between(dateFrom, dateTo) } }
-        : { where: { adminId } };
+      // Build query for general ledger
+      const queryBuilder = this.generalLedgerRepository
+        .createQueryBuilder('gl')
+        .where('gl.adminId = :adminId', { adminId });
 
-      // Optimized parallel queries with selective columns
-      const [sellingEntries, purchaseEntries] = await Promise.race<any[]>([
-        Promise.all([
-          this.sellingEntryRepository.find({
-            ...whereCondition,
-            select: ['id', 'date', 'sNo', 'amountCurrency', 'fromCurrencyId'],
-            relations: ['fromCurrency', 'customerAccount'],
-            take: 10000,
-          }),
-          this.purchaseEntryRepository.find({
-            ...whereCondition,
-            select: ['id', 'date', 'purchaseNumber', 'amountCurrency', 'currencyDrId'],
-            relations: ['customerAccount'],
-            take: 10000,
-          }),
-        ]),
-        new Promise<any[]>((_, reject) =>
-          setTimeout(
-            () => reject(new Error('Detailed balance sheet query took too long')),
-            this.QUERY_TIMEOUT,
-          ),
-        ),
-      ]);
+      if (dateFrom && dateTo) {
+        queryBuilder.andWhere('gl.transactionDate BETWEEN :dateFrom AND :dateTo', {
+          dateFrom,
+          dateTo,
+        });
+      }
 
-      // Aggregate currency transactions into ledger format
-      const currencyLedgers = new Map<string, {
+      // Fetch all ledger entries
+      const ledgerEntries = await queryBuilder
+        .orderBy('gl.transactionDate', 'ASC')
+        .addOrderBy('gl.createdAt', 'ASC')
+        .getMany();
+
+      // Group by account
+      const accountLedgers = new Map<string, {
+        accountName: string;
+        accountType: string;
         entries: DetailedBalanceSheetEntry[];
         totalDebit: number;
         totalCredit: number;
-        currencyName: string;
       }>();
 
-      // Process selling entries
-      sellingEntries.forEach((e) => {
-        const key = e.fromCurrencyId;
-        if (!currencyLedgers.has(key)) {
-          currencyLedgers.set(key, {
+      ledgerEntries.forEach((entry) => {
+        const key = entry.accountId;
+        if (!accountLedgers.has(key)) {
+          accountLedgers.set(key, {
+            accountName: entry.accountName,
+            accountType: entry.accountType,
             entries: [],
             totalDebit: 0,
             totalCredit: 0,
-            currencyName: e.fromCurrency?.name || '',
           });
         }
-        const ledger = currencyLedgers.get(key)!;
+        const ledger = accountLedgers.get(key)!;
+        
         ledger.entries.push({
-          date: e.date,
-          entryType: 'SELLING',
-          accountName: e.fromCurrency?.name || '',
-          narration: `Sale to ${e.customerAccount?.name || 'Customer'}`,
-          debit: 0,
-          credit: Number(e.amountCurrency) || 0,
-          balance: 0,
-          reference: e.sNo || '',
+          date: entry.transactionDate,
+          entryType: entry.entryType,
+          accountName: entry.contraAccountName || 'N/A',
+          narration: entry.description || `${entry.entryType} transaction`,
+          debit: Number(entry.debitAmount) || 0,
+          credit: Number(entry.creditAmount) || 0,
+          balance: 0, // Will calculate running balance below
+          reference: entry.referenceNumber || '',
         });
-        ledger.totalCredit += Number(e.amountCurrency) || 0;
-      });
-
-      // Process purchase entries
-      purchaseEntries.forEach((e) => {
-        const key = e.currencyDrId;
-        if (!currencyLedgers.has(key)) {
-          currencyLedgers.set(key, {
-            entries: [],
-            totalDebit: 0,
-            totalCredit: 0,
-            currencyName: '',
-          });
-        }
-        const ledger = currencyLedgers.get(key)!;
-        ledger.entries.push({
-          date: e.date,
-          entryType: 'PURCHASE',
-          accountName: e.customerAccount?.name || '',
-          narration: `Purchase from ${e.customerAccount?.name || 'Customer'}`,
-          debit: Number(e.amountCurrency) || 0,
-          credit: 0,
-          balance: 0,
-          reference: e.purchaseNumber?.toString() || '',
-        });
-        ledger.totalDebit += Number(e.amountCurrency) || 0;
+        
+        ledger.totalDebit += Number(entry.debitAmount) || 0;
+        ledger.totalCredit += Number(entry.creditAmount) || 0;
       });
 
       // Build detailed accounts with running balances
       const accounts: DetailedAccountLedger[] = [];
 
-      currencyLedgers.forEach((ledger, currencyId) => {
-        // Sort entries by date
+      accountLedgers.forEach((ledger, accountId) => {
+        // Sort entries by date (should already be sorted, but ensure)
         ledger.entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         // Calculate running balance
         let balance = 0;
         ledger.entries.forEach((entry) => {
-          balance = balance + entry.credit - entry.debit;
+          balance = balance + entry.debit - entry.credit;
           entry.balance = Math.round(balance * 100) / 100;
         });
 
         accounts.push({
-          accountId: currencyId,
-          accountName: ledger.currencyName || ledger.entries[0]?.accountName || '',
-          accountType: 'CURRENCY',
+          accountId: accountId,
+          accountName: ledger.accountName,
+          accountType: ledger.accountType,
           entries: ledger.entries,
           totalDebit: Math.round(ledger.totalDebit * 100) / 100,
           totalCredit: Math.round(ledger.totalCredit * 100) / 100,
-          closingBalance: balance,
+          closingBalance: Math.round(balance * 100) / 100,
         });
       });
 
-      // Filter out zero-balance accounts
+      // Filter out zero-balance accounts (optional - can be removed to show all)
       const filteredAccounts = accounts.filter((a) => {
-        if (a.accountType === 'CUSTOMER' || a.accountType === 'BANK') {
-          const zeroDebit = Math.abs(a.totalDebit) < 0.0001;
-          const zeroCredit = Math.abs(a.totalCredit) < 0.0001;
-          return !(zeroDebit && zeroCredit);
-        }
-        return true;
+        const zeroDebit = Math.abs(a.totalDebit) < 0.0001;
+        const zeroCredit = Math.abs(a.totalCredit) < 0.0001;
+        return !(zeroDebit && zeroCredit);
       });
 
       const totalDebit = filteredAccounts.reduce((sum, a) => sum + a.totalDebit, 0);

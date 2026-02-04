@@ -6,6 +6,8 @@ import {
   UseGuards,
   Req,
   Query,
+  Delete,
+  Param,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import AccountService from '../application/account.service';
@@ -105,5 +107,13 @@ export class AccountController {
     @Body() dto: CreateCurrencyAccountDto,
   ) {
     return await this.accountService.createCurrencyAccount(dto, req.adminId);
+  }
+
+  @Delete('delete/currency/:id')
+  @UseGuards(JwtAuthGuard, IsAdminGuard)
+  @ApiOperation({ summary: 'Delete a currency and all its related data' })
+  @ApiBearerAuth()
+  async deleteCurrency(@Param('id') id: string, @Req() req: Request) {
+    return await this.accountService.deleteCurrency(id, req.adminId);
   }
 }
