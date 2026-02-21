@@ -169,6 +169,7 @@ export class GeneralLedgerService {
 
   /**
    * Get all transactions for an admin within a date range
+   * Groups by sourceEntryId to show unique transactions (one per transaction, not both debit/credit)
    */
   async getAllTransactions(
     adminId: string,
@@ -189,7 +190,19 @@ export class GeneralLedgerService {
       query.andWhere('gl.transactionDate <= :endDate', { endDate });
     }
 
-    return await query.getMany();
+    const allEntries = await query.getMany();
+
+    // Group by sourceEntryId to show unique transactions (not both debit and credit entries)
+    const uniqueTransactions = new Map<string, GeneralLedgerEntity>();
+    for (const entry of allEntries) {
+      // Keep the first entry encountered for each sourceEntryId
+      // (which is the most recent due to DESC ordering)
+      if (!uniqueTransactions.has(entry.sourceEntryId)) {
+        uniqueTransactions.set(entry.sourceEntryId, entry);
+      }
+    }
+
+    return Array.from(uniqueTransactions.values());
   }
 
   /**
