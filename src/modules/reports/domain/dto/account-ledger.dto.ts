@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsInt, Min, IsDateString, IsEnum } from 'class-validator';
+import { IsOptional, IsInt, Min, IsDateString, IsEnum, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class GetAccountLedgerDto {
@@ -33,6 +33,7 @@ export class GetAccountLedgerDto {
     required: false 
   })
   @IsOptional()
+  @ValidateIf((o) => o.dateFrom !== '')
   @IsDateString()
   dateFrom?: string;
 
@@ -42,6 +43,7 @@ export class GetAccountLedgerDto {
     required: false 
   })
   @IsOptional()
+  @ValidateIf((o) => o.dateTo !== '')
   @IsDateString()
   dateTo?: string;
 }

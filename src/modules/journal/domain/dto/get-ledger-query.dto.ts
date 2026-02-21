@@ -1,19 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsDateString, IsUUID, IsEnum } from 'class-validator';
+import { IsOptional, IsDateString, IsUUID, IsEnum, ValidateIf } from 'class-validator';
 
 export class GetLedgerQueryDto {
   @ApiProperty({ description: 'Account ID to filter ledger', required: false })
   @IsOptional()
+  @ValidateIf((o) => o.accountId !== '')
   @IsUUID()
   accountId?: string;
 
   @ApiProperty({ description: 'Start date (YYYY-MM-DD)', required: false })
   @IsOptional()
+  @ValidateIf((o) => o.startDate !== '')
   @IsDateString()
   startDate?: string;
 
   @ApiProperty({ description: 'End date (YYYY-MM-DD)', required: false })
   @IsOptional()
+  @ValidateIf((o) => o.endDate !== '')
   @IsDateString()
   endDate?: string;
 
@@ -58,6 +61,7 @@ export class GetAccountBalanceDto {
 
   @ApiProperty({ description: 'Calculate balance up to this date (YYYY-MM-DD)', required: false })
   @IsOptional()
+  @ValidateIf((o) => o.upToDate !== '')
   @IsDateString()
   upToDate?: string;
 }
