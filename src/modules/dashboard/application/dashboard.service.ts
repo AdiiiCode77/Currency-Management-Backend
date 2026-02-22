@@ -12,6 +12,7 @@ import { AddChqRefBankEntity } from '../../account/domain/entity/add-chq-ref-ban
 import { CreateChqOutwardEntryDto } from '../domain/dto/create-chq-outward-entry.dto';
 import { ChqOutwardEntryEntity } from '../domain/entity/chq-outward-entry.entity';
 import { BankAccountEntity } from 'src/modules/account/domain/entity/bank-account.entity';
+import { RedisService } from '../../../shared/modules/redis/redis.service';
 
 @Injectable()
 export class DashboardService {
@@ -31,9 +32,8 @@ export class DashboardService {
     @InjectRepository(BankAccountEntity)
     private bankAccountRepo: Repository<BankAccountEntity>,
 
-
-
     private dataSource: DataSource,
+    private redisService: RedisService,
   ) {}
 
   async createChqInwardEntry(dto: CreateChqInwardEntryDto, adminId: string) {
@@ -74,6 +74,10 @@ export class DashboardService {
 
       const saved = await queryRunner.manager.save(entry);
       await queryRunner.commitTransaction();
+
+      // Invalidate daily books report cache
+      const redis = this.redisService.getClient();
+      await redis.del(`dailyBooksReport:${adminId}:${dto.entryDate}`);
 
       return {
         message: 'Cheque Inward Entry created successfully!',
@@ -157,6 +161,13 @@ export class DashboardService {
 
       await queryRunner.commitTransaction();
 
+      // Invalidate daily books report cache for all unique dates
+      const redis = this.redisService.getClient();
+      const uniqueDates = [...new Set(dtoArray.map(d => d.entryDate))];
+      await Promise.all(
+        uniqueDates.map(date => redis.del(`dailyBooksReport:${adminId}:${date}`))
+      );
+
       return {
         message: 'Batch processing completed.',
         total: dtoArray.length,
@@ -208,6 +219,10 @@ export class DashboardService {
       });
 
       const saved = await this.outwardRepo.save(entry);
+
+      // Invalidate daily books report cache
+      const redis = this.redisService.getClient();
+      await redis.del(`dailyBooksReport:${adminId}:${dto.entryDate}`);
 
       return {
         message: 'Cheque Outward Entry created successfully',
@@ -288,6 +303,13 @@ export class DashboardService {
       }
 
       await queryRunner.commitTransaction();
+
+      // Invalidate daily books report cache for all unique dates
+      const redis = this.redisService.getClient();
+      const uniqueDates = [...new Set(dtoArray.map(d => d.entryDate))];
+      await Promise.all(
+        uniqueDates.map(date => redis.del(`dailyBooksReport:${adminId}:${date}`))
+      );
 
       return {
         message: 'Batch processing completed.',

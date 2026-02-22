@@ -19,6 +19,8 @@ import { GeneralLedgerEntity } from '../../journal/domain/entity/general-ledger.
 import { CustomerAccountEntity } from '../../account/domain/entity/customer-account.entity';
 import { BankAccountEntity } from '../../account/domain/entity/bank-account.entity';
 import { GeneralAccountEntity } from '../../account/domain/entity/general-account.entity';
+import { ChqInwardEntryEntity } from '../../dashboard/domain/entity/chq-inward-entry.entity';
+import { ChqOutwardEntryEntity } from '../../dashboard/domain/entity/chq-outward-entry.entity';
 import {
   BalanceSheetResponse,
   DetailedBalanceSheetResponse,
@@ -114,6 +116,12 @@ export class ReportService {
 
     @InjectRepository(AddCurrencyEntity)
     private readonly currencyRepository: Repository<AddCurrencyEntity>,
+
+    @InjectRepository(ChqInwardEntryEntity)
+    private readonly chqInwardRepository: Repository<ChqInwardEntryEntity>,
+
+    @InjectRepository(ChqOutwardEntryEntity)
+    private readonly chqOutwardRepository: Repository<ChqOutwardEntryEntity>,
 
     @Inject(RedisService) private readonly redisService: RedisService,
   ) {}
@@ -370,10 +378,12 @@ export class ReportService {
       const cacheKey = `dailyBooksReport:${adminId}:${date}`;
       const cached = await this.redisService.getValue(cacheKey);
 
-      if (cached) {
-        this.logger.debug(`✅ Daily Books Report cache HIT for ${date}`);
-        return typeof cached === 'string' ? JSON.parse(cached) : cached;
-      }
+      // if (cached) {
+      //   this.logger.debug(`✅ Daily Books Report cache HIT for ${date}`);
+      //   const parsedCache = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      //   this.logger.debug(`Cache ChqInward: ${parsedCache.chqInwardEntries?.length || 0}, ChqOutward: ${parsedCache.chqOutwardEntries?.length || 0}`);
+      //   return parsedCache;
+      // }
 
       this.logger.debug(`🛑 Daily Books Report cache MISS for ${date}`);
 
@@ -386,6 +396,8 @@ export class ReportService {
         bankReceiverEntries,
         cashPaymentEntries,
         cashReceivedEntries,
+        chqInwardEntries,
+        chqOutwardEntries,
       ] = await Promise.race<any[]>([
         Promise.all([
           // Selling
@@ -515,6 +527,22 @@ export class ReportService {
             .orderBy('cr.date', 'ASC')
             .take(1000)
             .getMany(),
+          // Cheque Inward
+          this.chqInwardRepository
+            .createQueryBuilder('ci')
+            .where('ci.adminId = :adminId', { adminId })
+            .andWhere('ci.entryDate = :date', { date })
+            .orderBy('ci.entryDate', 'ASC')
+            .take(1000)
+            .getMany(),
+          // Cheque Outward
+          this.chqOutwardRepository
+            .createQueryBuilder('co')
+            .where('co.adminId = :adminId', { adminId })
+            .andWhere('co.entryDate = :date', { date })
+            .orderBy('co.entryDate', 'ASC')
+            .take(1000)
+            .getMany(),
         ]),
         new Promise<any[]>((_, reject) =>
           setTimeout(
@@ -524,6 +552,9 @@ export class ReportService {
         ),
       ]);
 
+      this.logger.debug(`ChqInward entries found: ${chqInwardEntries?.length || 0}`);
+      this.logger.debug(`ChqOutward entries found: ${chqOutwardEntries?.length || 0}`);
+
       const response = {
         sellingEntries: sellingEntries || [],
         purchaseEntries: purchaseEntries || [],
@@ -532,6 +563,8 @@ export class ReportService {
         bankReceiverEntries: bankReceiverEntries || [],
         cashPaymentEntries: cashPaymentEntries || [],
         cashReceivedEntries: cashReceivedEntries || [],
+        chqInwardEntries: chqInwardEntries || [],
+        chqOutwardEntries: chqOutwardEntries || [],
         date,
         recordCount:
           (sellingEntries?.length || 0) +
@@ -540,7 +573,9 @@ export class ReportService {
           (bankPaymentEntries?.length || 0) +
           (bankReceiverEntries?.length || 0) +
           (cashPaymentEntries?.length || 0) +
-          (cashReceivedEntries?.length || 0),
+          (cashReceivedEntries?.length || 0) +
+          (chqInwardEntries?.length || 0) +
+          (chqOutwardEntries?.length || 0),
       };
 
       await this.redisService.setValue(cacheKey, JSON.stringify(response), this.CACHE_DURATION);
@@ -554,6 +589,12 @@ export class ReportService {
         'Unable to fetch daily books report. Please ensure the date is valid and try again.',
       );
     }
+  }
+
+  async clearDailyBooksCache(adminId: string, date: string): Promise<void> {
+    const cacheKey = `dailyBooksReport:${adminId}:${date}`;
+    await this.redisService.deleteKey(cacheKey);
+    this.logger.debug(`Cache cleared for key: ${cacheKey}`);
   }
 
   async dailyBuyingReport(adminId: string, date: string): Promise<any> {

@@ -524,4 +524,16 @@ export class ReportController {
       );
     }
 
+    @Post('clear-cache/:date')
+    @ApiBearerAuth()
+    @UseGuards(JwtAuthGuard, IsAdminGuard)
+    @ApiOperation({ summary: 'Clear Daily Books Report Cache for a specific date' })
+    async clearDailyBooksCache(
+      @Req() req: Request,
+      @Param('date') date: string,
+    ): Promise<any> {
+      await this.reportService.clearDailyBooksCache(req.adminId, date);
+      return { message: `Cache cleared for date ${date}` };
+    }
+
 }
