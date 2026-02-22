@@ -260,16 +260,43 @@ export class CommonService {
   }
 
   async getRefBanks(adminId: string) {
-    const refbanks = await this.chqbank.find({
-      where: { adminId: adminId },
-      order: { name: 'ASC' },
-      select: ['name', 'id'],
-    });
+    const cacheKey = `chq_ref_banks_${adminId}`;
+    console.log('🔍 Checking cache for key:', cacheKey);
 
-    return refbanks.map((c) => ({
-      label: c.name,
-      value: c.id,
-    }));
+    // Check Redis first
+    const cached =
+      await this.redisService.getValue<{ label: string; value: string; accountNumber?: string }[]>(
+        cacheKey,
+      );
+    if (cached) {
+      console.log('✅ Cache HIT – returning cached cheque reference banks');
+      return cached;
+    }
+
+    console.log('❌ Cache MISS – fetching from DB');
+    try {
+      const refbanks = await this.chqbank.find({
+        where: { adminId: adminId },
+        order: { name: 'ASC' },
+        select: ['name', 'id', 'accountNumber'],
+      });
+
+      const result = refbanks.map((c) => ({
+        label: c.name,
+        value: c.id,
+        accountNumber: c.accountNumber,
+      }));
+
+      // Save to Redis with TTL (10 minutes)
+      await this.redisService.setValue(cacheKey, result, 600);
+      console.log('💾 Cache SET for key:', cacheKey);
+
+      return result;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to load cheque reference banks. Please try again later.',
+      );
+    }
   }
 
   async getAllAccountsForDropdown(

@@ -31,6 +31,8 @@ export class DashboardService {
     @InjectRepository(BankAccountEntity)
     private bankAccountRepo: Repository<BankAccountEntity>,
 
+
+
     private dataSource: DataSource,
   ) {}
 
@@ -46,7 +48,7 @@ export class DashboardService {
       const toAcc = await this.accountRepo.findOne({
         where: { id: dto.toAccountId },
       });
-      const bankRef = await this.bankAccountRepo.findOne({
+      const bankRef = await this.bankRefRepo.findOne({
         where: { id: dto.chqBankRefId },
       });
 
@@ -180,7 +182,7 @@ export class DashboardService {
       const toAcc = await this.accountRepo.findOne({
         where: { id: dto.toAccountId },
       });
-      const bankRef = await this.bankAccountRepo.findOne({
+      const bankRef = await this.bankRefRepo.findOne({
         where: { id: dto.chqBankRefId },
       });
 

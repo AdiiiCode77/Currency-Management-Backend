@@ -34,8 +34,8 @@ export class ChqOutwardEntryEntity {
     },})
   amount: number;
 
-  @ManyToOne(() => BankAccountEntity, { eager: true })
-  chqBankRef: BankAccountEntity;
+  @ManyToOne(() => AddChqRefBankEntity, { eager: true })
+  chqBankRef: AddChqRefBankEntity;
 
   @Column()
   chqNumber: string;
