@@ -129,11 +129,11 @@ export class GeneralLedgerService {
       .orderBy('gl.transactionDate', 'ASC')
       .addOrderBy('gl.createdAt', 'ASC');
 
-    if (startDate) {
+    if (startDate && startDate.trim() !== '') {
       query.andWhere('gl.transactionDate >= :startDate', { startDate });
     }
 
-    if (endDate) {
+    if (endDate && endDate.trim() !== '') {
       query.andWhere('gl.transactionDate <= :endDate', { endDate });
     }
 
@@ -156,11 +156,11 @@ export class GeneralLedgerService {
       .orderBy('gl.transactionDate', 'ASC')
       .addOrderBy('gl.createdAt', 'ASC');
 
-    if (startDate) {
+    if (startDate && startDate.trim() !== '') {
       query.andWhere('gl.transactionDate >= :startDate', { startDate });
     }
 
-    if (endDate) {
+    if (endDate && endDate.trim() !== '') {
       query.andWhere('gl.transactionDate <= :endDate', { endDate });
     }
 
@@ -182,11 +182,11 @@ export class GeneralLedgerService {
       .orderBy('gl.transactionDate', 'DESC')
       .addOrderBy('gl.createdAt', 'DESC');
 
-    if (startDate) {
+    if (startDate && startDate.trim() !== '') {
       query.andWhere('gl.transactionDate >= :startDate', { startDate });
     }
 
-    if (endDate) {
+    if (endDate && endDate.trim() !== '') {
       query.andWhere('gl.transactionDate <= :endDate', { endDate });
     }
 

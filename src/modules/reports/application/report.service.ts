@@ -1003,7 +1003,7 @@ export class ReportService {
         .createQueryBuilder('gl')
         .where('gl.adminId = :adminId', { adminId });
 
-      if (dateFrom && dateTo) {
+      if (dateFrom && dateTo && dateFrom.trim() !== '' && dateTo.trim() !== '') {
         queryBuilder.andWhere('gl.transactionDate BETWEEN :dateFrom AND :dateTo', {
           dateFrom,
           dateTo,
@@ -1199,7 +1199,7 @@ export class ReportService {
         .createQueryBuilder('gl')
         .where('gl.adminId = :adminId', { adminId });
 
-      if (dateFrom && dateTo) {
+      if (dateFrom && dateTo && dateFrom.trim() !== '' && dateTo.trim() !== '') {
         queryBuilder.andWhere('gl.transactionDate BETWEEN :dateFrom AND :dateTo', {
           dateFrom,
           dateTo,
@@ -1651,7 +1651,7 @@ export class ReportService {
         .andWhere('pe.currency_dr_id = :currencyId', { currencyId });
 
       // Add date range if provided
-      if (dateFrom && dateTo) {
+      if (dateFrom && dateTo && dateFrom.trim() !== '' && dateTo.trim() !== '') {
         queryBuilder.andWhere('pe.date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
       }
 
@@ -1813,7 +1813,7 @@ export class ReportService {
         .andWhere('s.customer_account_id = :customerId', { customerId })
         .andWhere('s.from_currency_id = :currencyId', { currencyId });
 
-      if (dateFrom && dateTo) {
+      if (dateFrom && dateTo && dateFrom.trim() !== '' && dateTo.trim() !== '') {
         qb.andWhere('s.date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
       }
 
@@ -1996,10 +1996,10 @@ export class ReportService {
         .addOrderBy('gl.createdAt', 'ASC');
 
       // Apply date filters if provided
-      if (dateFrom) {
+      if (dateFrom && dateFrom.trim() !== '') {
         queryBuilder.andWhere('gl.transactionDate >= :dateFrom', { dateFrom });
       }
-      if (dateTo) {
+      if (dateTo && dateTo.trim() !== '') {
         queryBuilder.andWhere('gl.transactionDate <= :dateTo', { dateTo });
       }
 
@@ -2211,10 +2211,10 @@ export class ReportService {
         .addOrderBy('gl.createdAt', 'ASC');
 
       // Apply date filters if provided
-      if (dateFrom) {
+      if (dateFrom && dateFrom.trim() !== '') {
         queryBuilder.andWhere('gl.transactionDate >= :dateFrom', { dateFrom });
       }
-      if (dateTo) {
+      if (dateTo && dateTo.trim() !== '') {
         queryBuilder.andWhere('gl.transactionDate <= :dateTo', { dateTo });
       }
 
