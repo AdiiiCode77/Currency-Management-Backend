@@ -82,7 +82,8 @@ export class DashboardService {
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw new InternalServerErrorException(
-        'Unable to create cheque inward entry. Please try again later.', error
+        'Unable to create cheque inward entry. Please try again later.',
+        { cause: error }
       );
     } finally {
       await queryRunner.release();
@@ -168,6 +169,7 @@ export class DashboardService {
       await queryRunner.rollbackTransaction();
       throw new InternalServerErrorException(
         'Unable to process cheque inward batch. Please try again later.',
+        { cause: error }
       );
     } finally {
       await queryRunner.release();
@@ -214,6 +216,7 @@ export class DashboardService {
     } catch (error) {
       throw new InternalServerErrorException(
         'Unable to create cheque outward entry. Please try again later.',
+        { cause: error }
       );
     }
   }
@@ -298,6 +301,7 @@ export class DashboardService {
       await queryRunner.rollbackTransaction();
       throw new InternalServerErrorException(
         'Unable to process cheque outward batch. Please try again later.',
+        { cause: error }
       );
     } finally {
       await queryRunner.release();
@@ -320,6 +324,7 @@ export class DashboardService {
     } catch (error) {
       throw new InternalServerErrorException(
         'Unable to fetch cheque outward entries. Please try again later.',
+        { cause: error }
       );
     }
   }
@@ -340,6 +345,7 @@ export class DashboardService {
     } catch (error) {
       throw new InternalServerErrorException(
         'Unable to fetch cheque inward entries. Please try again later.',
+        { cause: error }
       );
     }
   }

@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class Chat1771752853259 implements MigrationInterface {
-    name = 'Chat1771752853259'
+export class Chat1771755744440 implements MigrationInterface {
+    name = 'Chat1771755744440'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`ALTER TABLE "chq_outward_entries" DROP CONSTRAINT "FK_5c763b9575c2a35bda9a61117fc"`);

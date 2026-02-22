@@ -39,6 +39,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = responseObj.message || message;
         error = responseObj.error || exception.name;
       }
+
+      // Log the full error details including cause if exists
+      const cause = (exception as any).cause;
+      if (cause) {
+        this.logger.error(
+          `HTTP Exception [${status}]: ${JSON.stringify(message)}`,
+          cause instanceof Error ? cause.stack : JSON.stringify(cause),
+        );
+      }
     } else if (exception instanceof Error) {
       // Log the actual error for debugging
       this.logger.error(
