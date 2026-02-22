@@ -10,6 +10,7 @@ import { AddChqRefBankEntity } from '../domain/entity/add-chq-ref-bank.entity';
 import { AddCurrencyEntity } from '../domain/entity/currency.entity';
 import { CurrencyAccountEntity } from '../domain/entity/currency-account.entity';
 import { UUID } from 'crypto';
+import { RedisService } from '../../../shared/modules/redis/redis.service';
 
 @Injectable()
 export class UpdateAccountsService {
@@ -30,6 +31,7 @@ export class UpdateAccountsService {
     private readonly currencyRepo: Repository<AddCurrencyEntity>,
     @InjectRepository(CurrencyAccountEntity)
     private readonly currencyAccountRepo: Repository<CurrencyAccountEntity>,
+    private readonly redisService: RedisService,
   ) {}
 
   // Generic update handler
@@ -66,7 +68,17 @@ export class UpdateAccountsService {
   }
 
   async updateChqRefBank(id: string, dto: Partial<AddChqRefBankEntity>) {
-    return this.updateEntity(this.chqRefBankRepo, id, dto);
+    const updated = await this.updateEntity(this.chqRefBankRepo, id, dto);
+    
+    // Clear ChqRefBank dropdown cache after updating
+    if (updated && (updated as any).adminId) {
+      const adminId = (updated as any).adminId;
+      const cacheKey = `chq_ref_banks_${adminId}`;
+      await this.redisService.deleteKey(cacheKey);
+      console.log('🗑️ Cache CLEARED for key:', cacheKey);
+    }
+    
+    return updated;
   }
 
   async updateCurrency(id: string, dto: Partial<AddCurrencyEntity>) {

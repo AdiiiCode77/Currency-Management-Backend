@@ -136,7 +136,14 @@ export default class AccountService {
       ...dto,
       adminId,
     });
-    return await this.chqRefBankRepo.save(bank);
+    const savedBank = await this.chqRefBankRepo.save(bank);
+    
+    // Clear ChqRefBank dropdown cache after creating new entry
+    const cacheKey = `chq_ref_banks_${adminId}`;
+    await this.redisService.deleteKey(cacheKey);
+    console.log('🗑️ Cache CLEARED for key:', cacheKey);
+    
+    return savedBank;
   }
 
   async getAllChqRefBank(adminId: string, paginationDto: PaginationDto) {

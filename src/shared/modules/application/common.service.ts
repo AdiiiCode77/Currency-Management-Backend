@@ -430,14 +430,32 @@ export class CommonService {
   async clearAccountsCache(adminId?: string): Promise<void> {
     try {
       if (adminId) {
-        const pattern = `all_accounts_${adminId}*`;
-        const deleted = await this.redisService.deleteKeysByPattern(pattern);
-        console.log(`🗑️  Cleared ${deleted} cache entries for adminId: ${adminId}`);
+        // Clear all accounts cache
+        const pattern1 = `all_accounts_${adminId}*`;
+        const deleted1 = await this.redisService.deleteKeysByPattern(pattern1);
+        
+        // Clear customers cache
+        const key2 = `customers_${adminId}`;
+        await this.redisService.deleteKey(key2);
+        
+        // Clear customers and banks cache
+        const key3 = `customers_banks_${adminId}`;
+        await this.redisService.deleteKey(key3);
+        
+        // Clear chq ref banks cache
+        const key4 = `chq_ref_banks_${adminId}`;
+        await this.redisService.deleteKey(key4);
+        
+        console.log(`🗑️  Cleared ${deleted1} cache entries + dropdown caches for adminId: ${adminId}`);
       } else {
         // Clear all account caches
-        const deleted =
-          await this.redisService.deleteKeysByPattern('all_accounts_*');
-        console.log(`🗑️  Cleared ${deleted} total account cache entries`);
+        const deleted1 = await this.redisService.deleteKeysByPattern('all_accounts_*');
+        const deleted2 = await this.redisService.deleteKeysByPattern('customers_*');
+        const deleted3 = await this.redisService.deleteKeysByPattern('customers_banks_*');
+        const deleted4 = await this.redisService.deleteKeysByPattern('chq_ref_banks_*');
+        
+        const totalDeleted = deleted1 + deleted2 + deleted3 + deleted4;
+        console.log(`🗑️  Cleared ${totalDeleted} total account cache entries`);
       }
     } catch (error) {
       console.error('Error clearing cache:', error);
