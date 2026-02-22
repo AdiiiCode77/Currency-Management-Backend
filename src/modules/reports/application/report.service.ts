@@ -148,7 +148,7 @@ export class ReportService {
           .andWhere('cs.currencyAmount > 0')
           .select('c.name', 'name')
           .addSelect('c.code', 'code')
-          .addSelect('cs.stockAmountPkr', 'amountPkr')
+          .addSelect('(cs.currencyAmount * cs.rate)', 'amountPkr')
           .addSelect('cs.currencyAmount', 'amountCurrency')
           .addSelect('cs.rate', 'rate')
           .orderBy('c.name', 'ASC')
