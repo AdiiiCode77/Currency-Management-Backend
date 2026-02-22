@@ -2122,6 +2122,8 @@ export class ReportService {
     dateTo?: string,
   ): Promise<AccountLedgerResponse> {
     try {
+      this.logger.log(`📊 Account Ledger Request - AdminID: ${adminId}, AccountID: ${accountId}, Page: ${page}, Limit: ${limit}, DateFrom: ${dateFrom || 'N/A'}, DateTo: ${dateTo || 'N/A'}`);
+      
       if (!accountId) {
         throw new BadRequestException('Account ID is required');
       }
@@ -2131,13 +2133,14 @@ export class ReportService {
       const cached = await this.redisService.getValue(cacheKey);
       
       if (cached) {
-        this.logger.debug(`✅ Account Ledger cache HIT`);
+        this.logger.debug(`✅ Account Ledger cache HIT - Key: ${cacheKey}`);
         return typeof cached === 'string' ? JSON.parse(cached) : cached;
       }
 
-      this.logger.debug(`🛑 Account Ledger cache MISS`);
+      this.logger.debug(`🛑 Account Ledger cache MISS - Key: ${cacheKey}`);
 
       // Find account in various account tables to determine type and name
+      this.logger.debug(`🔍 Looking up account details for AccountID: ${accountId}`);
       let accountName = '';
       let accountType: 'CUSTOMER' | 'BANK' | 'CURRENCY' | 'GENERAL' = 'CUSTOMER';
       let accountFound = false;
@@ -2151,7 +2154,9 @@ export class ReportService {
         accountName = customerAccount.name;
         accountType = 'CUSTOMER';
         accountFound = true;
+        this.logger.debug(`✓ Found CUSTOMER account: ${accountName}`);
       } else {
+        this.logger.debug(`✗ Not found in CUSTOMER accounts`);
         // Try Bank Account
         const bankAccount = await this.bankAccountRepository.findOne({
           where: { id: accountId, adminId },
@@ -2161,7 +2166,9 @@ export class ReportService {
           accountName = bankAccount.bankName;
           accountType = 'BANK';
           accountFound = true;
+          this.logger.debug(`✓ Found BANK account: ${accountName}`);
         } else {
+          this.logger.debug(`✗ Not found in BANK accounts`);
           // Try Currency Account
           const currencyAccount = await this.currencyRepository.findOne({
             where: { id: accountId, adminId },
@@ -2171,7 +2178,9 @@ export class ReportService {
             accountName = currencyAccount.name;
             accountType = 'CURRENCY';
             accountFound = true;
+            this.logger.debug(`✓ Found CURRENCY account: ${accountName}`);
           } else {
+            this.logger.debug(`✗ Not found in CURRENCY accounts`);
             // Try General Account
             const generalAccount = await this.generalAccountRepository.findOne({
               where: { id: accountId, adminId },
@@ -2181,7 +2190,9 @@ export class ReportService {
               accountName = generalAccount.name;
               accountType = 'GENERAL';
               accountFound = true;
+              this.logger.debug(`✓ Found GENERAL account: ${accountName}`);
             } else {
+              this.logger.debug(`✗ Not found in GENERAL accounts - Checking General Ledger`);
               // Try to get from general ledger (as fallback for any account type)
               const firstEntry = await this.generalLedgerRepository.findOne({
                 where: { accountId, adminId },
@@ -2192,6 +2203,7 @@ export class ReportService {
                 accountName = firstEntry.accountName;
                 accountType = firstEntry.accountType;
                 accountFound = true;
+                this.logger.debug(`✓ Found account in General Ledger: ${accountName} (${accountType})`);
               }
             }
           }
@@ -2199,10 +2211,14 @@ export class ReportService {
       }
 
       if (!accountFound) {
+        this.logger.warn(`❌ Account not found - AccountID: ${accountId}, AdminID: ${adminId}`);
         throw new BadRequestException('Account not found');
       }
 
+      this.logger.log(`✅ Account identified - Name: ${accountName}, Type: ${accountType}`);
+
       // Build query for general ledger
+      this.logger.debug(`🔨 Building General Ledger query`);
       const queryBuilder = this.generalLedgerRepository
         .createQueryBuilder('gl')
         .where('gl.adminId = :adminId', { adminId })
@@ -2213,22 +2229,29 @@ export class ReportService {
       // Apply date filters if provided
       if (dateFrom && dateFrom.trim() !== '') {
         queryBuilder.andWhere('gl.transactionDate >= :dateFrom', { dateFrom });
+        this.logger.debug(`📅 Applied date filter - From: ${dateFrom}`);
       }
       if (dateTo && dateTo.trim() !== '') {
         queryBuilder.andWhere('gl.transactionDate <= :dateTo', { dateTo });
+        this.logger.debug(`📅 Applied date filter - To: ${dateTo}`);
       }
 
       // Get total count for pagination
+      this.logger.debug(`🔢 Counting total ledger entries...`);
       const totalRecords = await queryBuilder.getCount();
       const totalPages = Math.ceil(totalRecords / limit);
+      this.logger.log(`📊 Found ${totalRecords} total records, ${totalPages} pages (Limit: ${limit})`);
 
       // Get paginated results
+      this.logger.debug(`📄 Fetching page ${page} entries (Skip: ${(page - 1) * limit}, Take: ${limit})`);
       const ledgerEntries = await queryBuilder
         .skip((page - 1) * limit)
         .take(limit)
         .getMany();
+      this.logger.debug(`✓ Retrieved ${ledgerEntries.length} ledger entries for current page`);
 
       // Process entries and calculate running balance
+      this.logger.debug(`🧮 Calculating running balance and totals...`);
       let runningBalance = 0;
       let totalCredit = 0;
       let totalDebit = 0;
@@ -2237,6 +2260,7 @@ export class ReportService {
       // If we're on page 1 and no date filter, start from 0
       // Otherwise, get the balance up to the start of this page
       if (page > 1 || dateFrom) {
+        this.logger.debug(`⚙️ Calculating previous balance for page ${page}...`);
         const previousQuery = this.generalLedgerRepository
           .createQueryBuilder('gl')
           .select('COALESCE(SUM(gl.debitAmount), 0) - COALESCE(SUM(gl.creditAmount), 0)', 'balance')
@@ -2259,9 +2283,11 @@ export class ReportService {
           previousEntries.forEach(entry => {
             runningBalance += (entry.debitAmount || 0) - (entry.creditAmount || 0);
           });
+          this.logger.debug(`✓ Previous balance calculated: ${runningBalance} (from ${previousEntries.length} previous entries)`);
         }
       }
 
+      this.logger.debug(`💰 Starting balance for this page: ${runningBalance}`);
       const entries: AccountLedgerEntry[] = ledgerEntries.map((entry) => {
         const debit = entry.debitAmount || 0;
         const credit = entry.creditAmount || 0;
@@ -2292,6 +2318,9 @@ export class ReportService {
       const balance = Math.round(runningBalance * 100) / 100;
       const total = Math.round((totalDebit + totalCredit) * 100) / 100;
 
+      this.logger.log(`💵 Totals calculated - Debit: ${totalDebit}, Credit: ${totalCredit}, Balance: ${balance}, Total: ${total}`);
+      this.logger.debug(`💳 Cheque totals - Inward: ${totalChqInward}, Outward: ${totalChqOutward}`);
+
       const totals: AccountLedgerTotals = {
         totalCredit: Math.round(totalCredit * 100) / 100,
         totalDebit: Math.round(totalDebit * 100) / 100,
@@ -2316,11 +2345,13 @@ export class ReportService {
       };
 
       // Cache the response
+      this.logger.debug(`💾 Caching response with ${entries.length} entries`);
       await this.redisService.setValue(cacheKey, JSON.stringify(response), this.CACHE_DURATION);
       
+      this.logger.log(`✅ Account Ledger response prepared successfully - ${entries.length} entries returned`);
       return response;
     } catch (error) {
-      this.logger.error(`Error fetching account ledger:`, error);
+      this.logger.error(`❌ Error fetching account ledger for AccountID: ${accountId}, AdminID: ${adminId}:`, error);
       if (error instanceof BadRequestException) {
         throw error;
       }

@@ -6,6 +6,7 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiOkResponse, ApiTags, ApiParam
 import { JwtAuthGuard } from '../../../shared/guards/jwt.guard';
 import { IsAdminGuard } from '../../../shared/guards/isAdmin.guard';
 import { GetAccountLedgerDto } from '../domain/dto/account-ledger.dto';
+import { start } from 'repl';
 @ApiTags('reports')
 @Controller('reports')
 export class ReportController {
@@ -457,8 +458,8 @@ export class ReportController {
     })
     @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
     @ApiQuery({ name: 'limit', required: false, type: Number, example: 50 })
-    @ApiQuery({ name: 'dateFrom', required: false, type: String, example: '2026-01-01' })
-    @ApiQuery({ name: 'dateTo', required: false, type: String, example: '2026-01-31' })
+    @ApiQuery({ name: 'startDate', required: false, type: String, example: '2026-01-01' })
+    @ApiQuery({ name: 'endDate', required: false, type: String, example: '2026-01-31' })
     @ApiOkResponse({
       description: 'Account ledger with all transactions and totals',
       schema: {
@@ -510,16 +511,16 @@ export class ReportController {
       @Param('accountId') accountId: string,
       @Query('page') page?: number,
       @Query('limit') limit?: number,
-      @Query('dateFrom') dateFrom?: string,
-      @Query('dateTo') dateTo?: string,
+      @Query('startDate') startDate?: string,
+      @Query('endDate') endDate?: string,
     ): Promise<any> {
       return this.reportService.getAccountLedger(
         req.adminId,
         accountId,
         page || 1,
         limit || 50,
-        dateFrom,
-        dateTo,
+        startDate,
+        endDate,
       );
     }
 
