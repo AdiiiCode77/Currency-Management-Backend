@@ -1003,7 +1003,7 @@ export class ReportService {
         .createQueryBuilder('gl')
         .where('gl.adminId = :adminId', { adminId });
 
-      if (dateFrom && dateTo && dateFrom.trim() !== '' && dateTo.trim() !== '') {
+      if (dateFrom && dateTo && !isNaN(dateFrom.getTime()) && !isNaN(dateTo.getTime())) {
         queryBuilder.andWhere('gl.transactionDate BETWEEN :dateFrom AND :dateTo', {
           dateFrom,
           dateTo,
@@ -1199,7 +1199,7 @@ export class ReportService {
         .createQueryBuilder('gl')
         .where('gl.adminId = :adminId', { adminId });
 
-      if (dateFrom && dateTo && dateFrom.trim() !== '' && dateTo.trim() !== '') {
+      if (dateFrom && dateTo && !isNaN(dateFrom.getTime()) && !isNaN(dateTo.getTime())) {
         queryBuilder.andWhere('gl.transactionDate BETWEEN :dateFrom AND :dateTo', {
           dateFrom,
           dateTo,
@@ -1651,7 +1651,7 @@ export class ReportService {
         .andWhere('pe.currency_dr_id = :currencyId', { currencyId });
 
       // Add date range if provided
-      if (dateFrom && dateTo && dateFrom.trim() !== '' && dateTo.trim() !== '') {
+      if (dateFrom && dateTo && !isNaN(dateFrom.getTime()) && !isNaN(dateTo.getTime())) {
         queryBuilder.andWhere('pe.date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
       }
 
@@ -1813,7 +1813,7 @@ export class ReportService {
         .andWhere('s.customer_account_id = :customerId', { customerId })
         .andWhere('s.from_currency_id = :currencyId', { currencyId });
 
-      if (dateFrom && dateTo && dateFrom.trim() !== '' && dateTo.trim() !== '') {
+      if (dateFrom && dateTo && !isNaN(dateFrom.getTime()) && !isNaN(dateTo.getTime())) {
         qb.andWhere('s.date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
       }
 
